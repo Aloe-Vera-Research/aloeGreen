@@ -1,9 +1,14 @@
 import { Tabs } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: "#2E7D32" }}>
+    <Tabs screenOptions={{ 
+      headerShown: false, 
+      tabBarActiveTintColor: "#2E7D32",
+      tabBarInactiveTintColor: "#757575"
+    }}>
       <Tabs.Screen
         name="home"
         options={{
@@ -12,10 +17,17 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="chatbot"
+        options={{
+          title: "AI Assistant",
+          tabBarIcon: ({ color }) => <Ionicons name="chatbubbles" size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="about"
         options={{
           title: "About",
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="info.circle.fill" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="information-circle" size={28} color={color} />,
         }}
       />
       
