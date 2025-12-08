@@ -11,29 +11,28 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-// Define the message type
+// Message Type
 type Message = {
     text: string;
     role: "user" | "model";
 };
 
-// Your new API key
-const API_KEY = "";
+// API Key
+const API_KEY = "AIzaSyARuVdvV5wa0ZT1HgcZlMtjZcMYQlQg6RQ";
 
 const systemInstruction = `You are AloeVera AI, an expert in Aloe Vera farming. Help with disease detection, yield forecasting, fertilizer recommendations, and price predictions. Only answer questions about Aloe Vera farming. Respond in Sinhala if asked in Sinhala.`;
 
-// Function to clean markdown formatting
+// Remove Markdown for clean UI
 const cleanMarkdown = (text: string): string => {
     return text
-        .replace(/\*\*(.*?)\*\*/g, '$1')  
-        .replace(/\*(.*?)\*/g, '$1')      
-        .replace(/##\s*/g, '')            
-        .replace(/###\s*/g, '')           
-        .replace(/####\s*/g, '')          
-        .replace(/`(.*?)`/g, '$1')        
-        .replace(/\n\n\n+/g, '\n\n')     
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/##+\s*/g, "")
+        .replace(/`(.*?)`/g, "$1")
+        .replace(/\n\n\n+/g, "\n\n")
         .trim();
 };
 
@@ -53,66 +52,41 @@ export default function ChatbotScreen() {
                 `https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`
             );
             const data = await response.json();
-            
-            if (data.models && data.models.length > 0) {
-                // Prioritize free tier models, avoid experimental ones
-                const freeModels = [
-                    'gemini-1.5-flash',
-                    'gemini-1.5-flash-latest',
-                    'gemini-1.5-flash-001',
-                    'gemini-1.5-flash-002',
-                    'gemini-pro'
-                ];
 
-                for (const freeName of freeModels) {
-                    const model = data.models.find((m: any) => 
-                        m.name.includes(freeName) && 
-                        m.supportedGenerationMethods?.includes('generateContent') &&
-                        !m.name.includes('exp') // Skip experimental models
-                    );
-                    
-                    if (model) {
-                        const modelName = model.name.replace('models/', '');
-                        setAvailableModel(modelName);
-                        console.log("Using model:", modelName);
-                        return;
-                    }
-                }
+            const models = data.models || [];
+            const freeModels = [
+                "gemini-1.5-flash",
+                "gemini-1.5-flash-latest",
+                "gemini-pro",
+            ];
 
-                // Fallback to any non-experimental model
-                const model = data.models.find((m: any) => 
-                    m.supportedGenerationMethods?.includes('generateContent') &&
-                    !m.name.includes('exp') &&
-                    !m.name.includes('pro-exp')
+            for (const freeName of freeModels) {
+                const model = models.find(
+                    (m: any) =>
+                        m.name.includes(freeName) &&
+                        m.supportedGenerationMethods?.includes("generateContent") &&
+                        !m.name.includes("exp")
                 );
-                
                 if (model) {
-                    const modelName = model.name.replace('models/', '');
-                    setAvailableModel(modelName);
-                    console.log("Using fallback model:", modelName);
+                    setAvailableModel(model.name.replace("models/", ""));
+                    return;
                 }
             }
-        } catch (error) {
-            console.error("Error checking models:", error);
-            // Set a default model if check fails
-            setAvailableModel('gemini-1.5-flash');
+
+            setAvailableModel("gemini-1.5-flash");
+        } catch {
+            setAvailableModel("gemini-1.5-flash");
         }
     };
 
     const handleMessageSend = async () => {
-        if (userInput.trim() === "") return;
-
-        if (!availableModel) {
-            setMessages((prev) => [...prev, {
-                text: "Loading AI model... Please wait and try again.",
-                role: "model"
-            }]);
-            return;
-        }
+        if (!userInput.trim()) return;
+        if (!availableModel) return;
 
         const newUserMessage = { text: userInput, role: "user" as const };
-        setMessages((prevMessages) => [...prevMessages, newUserMessage]);
+        setMessages((prev) => [...prev, newUserMessage]);
         setLoading(true);
+
         const currentInput = userInput;
         setUserInput("");
 
@@ -121,47 +95,31 @@ export default function ChatbotScreen() {
                 `https://generativelanguage.googleapis.com/v1beta/models/${availableModel}:generateContent?key=${API_KEY}`,
                 {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `${systemInstruction}\n\nUser: ${currentInput}\n\nPlease respond in plain text without any markdown formatting like **, ##, or *.`
-                            }]
-                        }]
+                        contents: [
+                            {
+                                parts: [
+                                    {
+                                        text: `${systemInstruction}\nUser: ${currentInput}\nRespond only in plain text.`,
+                                    },
+                                ],
+                            },
+                        ],
                     }),
                 }
             );
 
             const data = await response.json();
-            
-            if (!response.ok) {
-                console.error("API Error:", data);
-                
-                // Handle quota errors specifically
-                if (data.error?.message?.includes('quota')) {
-                    throw new Error("Free tier limit reached. Please wait a moment and try again, or create a new API key.");
-                }
-                
-                throw new Error(data.error?.message || `HTTP ${response.status}`);
-            }
+            const rawText =
+                data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+            const cleanedText = cleanMarkdown(rawText);
 
-            const rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
-            const botResponse = cleanMarkdown(rawResponse); // Clean the markdown
-
-            setMessages((prevMessages) => [
-                ...prevMessages,
-                { text: botResponse, role: "model" },
-            ]);
+            setMessages((prev) => [...prev, { text: cleanedText, role: "model" }]);
         } catch (error: any) {
-            console.error("Error during chat:", error);
-            setMessages((prevMessages) => [
-                ...prevMessages,
-                { 
-                    text: `${error.message}`, 
-                    role: "model" 
-                },
+            setMessages((prev) => [
+                ...prev,
+                { text: `Error: ${error.message}`, role: "model" },
             ]);
         } finally {
             setLoading(false);
@@ -169,176 +127,181 @@ export default function ChatbotScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
-        >
-            <View style={styles.container}>
-                <View style={styles.headerContainer}>
-                    <Text style={styles.header}>AloeGreen AI Assistant</Text>
-                    <Text style={styles.subtitle}>Smart Support for Aloe Vera Farmers</Text>
-                </View>
-
-                {messages.length === 0 && (
-                    <View style={styles.imageContainer}>
-                        <Image
-                            source={require("../../assets/images/chatbot.png")}
-                            style={styles.chatbotImage}
-                        />
-                        <Text style={styles.welcomeText}>Ask me about:</Text>
-                        <Text style={styles.featureText}>• Disease Detection & Treatment</Text>
-                        <Text style={styles.featureText}>• Yield Forecasting</Text>
-                        <Text style={styles.featureText}>• Fertilizer Recommendations</Text>
-                        <Text style={styles.featureText}>• Price Predictions</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#2E7D32" }}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+            >
+                <View style={styles.container}>
+                    {/* Header */}
+                    <View style={styles.headerContainer}>
+                        <Text style={styles.header}>AloeGreen AI Assistant</Text>
+                        <Text style={styles.subtitle}>
+                            Smart Support for Aloe Vera Farmers
+                        </Text>
                     </View>
-                )}
 
-                <ScrollView
-                    style={styles.chatContainer}
-                    contentContainerStyle={{ flexGrow: 1 }}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {messages.map((message, index) => (
-                        <View
-                            key={index}
-                            style={
-                                message.role === "user"
-                                    ? styles.userMessage
-                                    : styles.botMessage
-                            }
-                        >
-                            <Text style={styles.messageText}>{message.text}</Text>
+                    {/* Empty Chat Start Screen */}
+                    {messages.length === 0 && (
+                        <View style={styles.imageContainer}>
+                            <Image
+                                source={require("../../assets/images/chatbot.png")}
+                                style={styles.chatbotImage}
+                            />
+                            <Text style={styles.welcomeText}>Ask me about:</Text>
+                            <Text style={styles.featureText}>• Disease Detection</Text>
+                            <Text style={styles.featureText}>• Yield Forecasting</Text>
+                            <Text style={styles.featureText}>• Fertilizers</Text>
+                            <Text style={styles.featureText}>• Price Predictions</Text>
                         </View>
-                    ))}
-                    {loading && (
-                        <ActivityIndicator
-                            size="large"
-                            color="#2E7D32"
-                            style={styles.spinner}
-                        />
                     )}
-                </ScrollView>
 
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        value={userInput}
-                        onChangeText={setUserInput}
-                        placeholder="Ask about Aloe Vera farming..."
-                        placeholderTextColor="#aaa"
-                    />
-
-                    <TouchableOpacity
-                        style={styles.sendButton}
-                        onPress={handleMessageSend}
+                    {/* Chat */}
+                    <ScrollView
+                        style={styles.chatContainer}
+                        keyboardShouldPersistTaps="handled"
                     >
-                        <Ionicons name="send" size={24} color="#fff" />
-                    </TouchableOpacity>
+                        {messages.map((msg, index) => (
+                            <View
+                                key={index}
+                                style={msg.role === "user" ? styles.userMessage : styles.botMessage}
+                            >
+                                <Text style={styles.messageText}>{msg.text}</Text>
+                            </View>
+                        ))}
+                        {loading && (
+                            <ActivityIndicator
+                                size="large"
+                                color="#2E7D32"
+                                style={styles.spinner}
+                            />
+                        )}
+                    </ScrollView>
+
+                    {/* Input */}
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            value={userInput}
+                            onChangeText={setUserInput}
+                            placeholder="Ask about Aloe Vera farming..."
+                            placeholderTextColor="#999"
+                        />
+                        <TouchableOpacity
+                            style={styles.sendButton}
+                            onPress={handleMessageSend}
+                        >
+                            <Ionicons name="send" size={22} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#f5f9f5",
-    },
+    container: { flex: 1, backgroundColor: "#f5f9f5" },
     headerContainer: {
         backgroundColor: "#2E7D32",
-        paddingVertical: 25,
-        paddingHorizontal: 15,
+        paddingVertical: 20,
+        paddingHorizontal: 16,
         borderBottomLeftRadius: 25,
-        borderBottomRightRadius: 25,    
+        borderBottomRightRadius: 25,
+        shadowColor: "#000",
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
         marginBottom: 10,
     },
     header: {
-        fontSize: 24,
-        fontWeight: "bold",
+        fontSize: 22,
+        fontWeight: "700",
         color: "#fff",
         textAlign: "center",
     },
     subtitle: {
-        fontSize: 14,
+        fontSize: 13,
         color: "#d0e8d0",
         textAlign: "center",
-        marginTop: 5,
+        marginTop: 4,
     },
+    chatContainer: {
+        flex: 1,
+        paddingHorizontal: 15,
+        paddingBottom: 10,
+    },
+    inputContainer: {
+        flexDirection: "row",
+        padding: 10,
+        backgroundColor: "#fff",
+        borderTopWidth: 1,
+        borderColor: "#ddd",
+        alignItems: "center",
+    },
+    input: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: "#ccc",
+        backgroundColor: "#fff",
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 18,
+        fontSize: 15,
+    },
+    sendButton: {
+        marginLeft: 8,
+        backgroundColor: "#2E7D32",
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: "center",
+        alignItems: "center",
+        shadowColor: "#2E7D32",
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+    },
+    userMessage: {
+        alignSelf: "flex-end",
+        backgroundColor: "#c8e6c9",
+        padding: 10,
+        borderRadius: 16,
+        marginVertical: 6,
+        maxWidth: "80%",
+    },
+    botMessage: {
+        alignSelf: "flex-start",
+        backgroundColor: "#e8f5e9",
+        padding: 10,
+        borderRadius: 16,
+        marginVertical: 6,
+        maxWidth: "80%",
+    },
+    messageText: { fontSize: 15, color: "#1b5e20" },
+    spinner: { marginTop: 10 },
     imageContainer: {
         alignItems: "center",
         justifyContent: "center",
         marginVertical: 30,
     },
     chatbotImage: {
-        width: 200,
-        height: 200,
+        width: 160,
+        height: 160,
         resizeMode: "contain",
-        marginBottom: 20,
+        marginBottom: 16,
     },
     welcomeText: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: "600",
         color: "#2E7D32",
-        marginBottom: 10,
+        marginBottom: 6,
     },
     featureText: {
         fontSize: 14,
         color: "#555",
         marginVertical: 2,
-    },
-    chatContainer: {
-        flex: 1,
-        paddingHorizontal: 15,
-    },
-    inputContainer: {
-        flexDirection: "row",
-        paddingVertical: 10,
-        paddingHorizontal: 10,
-        backgroundColor: "#f5f9f5",
-        borderTopWidth: 1,
-        borderColor: "#ddd",
-    },
-    input: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: "#ddd",
-        backgroundColor: "#fff",
-        padding: 12,
-        borderRadius: 20,
-        marginRight: 10,
-        fontSize: 16,
-    },
-    sendButton: {
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#2E7D32",
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        elevation: 3,
-    },
-    userMessage: {
-        alignSelf: "flex-end",
-        backgroundColor: "#c8e6c9",
-        padding: 12,
-        borderRadius: 15,
-        marginBottom: 10,
-        maxWidth: "80%",
-    },
-    botMessage: {
-        alignSelf: "flex-start",
-        backgroundColor: "#e8f5e9",
-        padding: 12,
-        borderRadius: 15,
-        marginBottom: 10,
-        maxWidth: "80%",
-    },
-    messageText: {
-        fontSize: 16,
-        color: "#1b5e20",
-    },
-    spinner: {
-        marginTop: 10,
     },
 });
