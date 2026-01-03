@@ -15,6 +15,8 @@ export default function RootLayout() {
  
       {/* Fertilizer stack */}
       <Stack.Screen name="fertilizer" />
+
+      <Stack.Screen name="disease-management" />
     </Stack>
   );
 }
