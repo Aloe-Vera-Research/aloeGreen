@@ -19,7 +19,7 @@ export default function HomeScreen() {
         {/* </Link> */}
 
         {/* Card 2: Disease Detection */}
-        {/* <Link href="/detect" asChild>*/}
+        <Link href="/disease-management" asChild>
           <TouchableOpacity style={styles.card}>
             <Image source={require("../../assets/images/disease.png")} style={styles.cardImage} />
             <View style={styles.cardContent}>
@@ -27,7 +27,7 @@ export default function HomeScreen() {
               <Text style={styles.cardSubtitle}>Scan leaf images and detect diseases using AI.</Text>
             </View>
           </TouchableOpacity>
-        {/* </Link>  */}
+        </Link>
 
         {/* Card 3: Fertilizer Plan */}
         <Link href="/fertilizer" asChild>
