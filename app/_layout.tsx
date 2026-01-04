@@ -10,13 +10,13 @@ export default function RootLayout() {
       {/* Landing page will be recognized automatically */}
       <Stack.Screen name="landing" />
  
-      {/* Tabs group */}
       <Stack.Screen name="(tabs)" />
- 
-      {/* Fertilizer stack */}
-      <Stack.Screen name="fertilizer" />
 
-      <Stack.Screen name="yield" />
+      <Stack.Screen name="yield-management" />
+
+      <Stack.Screen name="fertilizer-management" />
+
+      <Stack.Screen name="disease-management" />
     </Stack>
   );
 }
