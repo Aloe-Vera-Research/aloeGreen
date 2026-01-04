@@ -30,6 +30,17 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="information-circle" size={28} color={color} />,
         }}
       />
+      <Tabs.Screen
+  name="live-stats"
+  options={{
+    title: "Live Stats",
+    tabBarIcon: ({ color, size }) => (
+      <Ionicons name="pulse-outline" size={size} color={color} />
+    ),
+  }}
+/>
+
+      
     </Tabs>
   );
 }

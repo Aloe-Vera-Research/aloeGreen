@@ -8,15 +8,15 @@ export default function HomeScreen() {
       <Text style={styles.subheading}>Smart Support System for Aloe Vera</Text>
       <View style={styles.cardsContainer}>
         {/* Card 1: Yield & Forecasting */}
-        {/* <Link href="/yield" asChild> */}
-        <TouchableOpacity style={styles.card}>
-          <Image source={require("../../assets/images/yield.png")} style={styles.cardImage} />
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Yield & Forecasting</Text>
-            <Text style={styles.cardSubtitle}>Predict Aloe Vera yield based on weather & soil.</Text>
-          </View>
-        </TouchableOpacity>
-        {/* </Link> */}
+        <Link href="/yield" asChild>
+          <TouchableOpacity style={styles.card}>
+            <Image source={require("../../assets/images/yield.png")} style={styles.cardImage} />
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>Yield & Forecasting</Text>
+              <Text style={styles.cardSubtitle}>Predict Aloe Vera yield based on weather & soil.</Text>
+            </View>
+          </TouchableOpacity>
+        </Link>
 
         {/* Card 2: Disease Detection */}
         <Link href="/disease-management" asChild>
@@ -30,6 +30,7 @@ export default function HomeScreen() {
         </Link>
 
         {/* Card 3: Fertilizer Plan */}
+
         <Link href="/fertilizer-management" asChild>
           <TouchableOpacity style={styles.card}>
             <Image source={require("../../assets/images/fertilizer.png")} style={styles.cardImage} />
