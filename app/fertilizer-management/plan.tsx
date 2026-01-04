@@ -1,14 +1,14 @@
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
-import { useEffect, useState } from "react";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons"; 
-import * as Speech from "expo-speech"; 
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Speech from "expo-speech";
+import { useState } from "react";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function FertilizerPlanScreen() {
      const router = useRouter();
@@ -68,7 +68,7 @@ export default function FertilizerPlanScreen() {
       {/* Extra Features Section */}
      <TouchableOpacity
   style={styles.extraFeature}
-  onPress={() => router.push("/fertilizer/AnalyzerScreen")} 
+  onPress={() => router.push("/fertilizer-management/AnalyzerScreen")} 
 >
   <Ionicons name="analytics-outline" size={24} color="#1B5E20" />
   <Text style={styles.extraFeatureText}>

@@ -14,7 +14,7 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" />
  
       {/* Fertilizer stack */}
-      <Stack.Screen name="fertilizer" />
+      <Stack.Screen name="fertilizer-management" />
 
       <Stack.Screen name="disease-management" />
     </Stack>
