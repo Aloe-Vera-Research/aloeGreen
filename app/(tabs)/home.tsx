@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { Link } from "expo-router";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function HomeScreen() {
@@ -19,44 +19,37 @@ export default function HomeScreen() {
         {/* </Link> */}
 
         {/* Card 2: Disease Detection */}
-        {/* <Link href="/detect" asChild>*/}
-        <TouchableOpacity style={styles.card}>
-          <Image source={require("../../assets/images/disease.png")} style={styles.cardImage} />
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Disease Detection</Text>
-            <Text style={styles.cardSubtitle}>Scan leaf images and detect diseases using AI.</Text>
-          </View>
-        </TouchableOpacity>
-        {/* </Link>  */}
+        <Link href="/disease-management" asChild>
+          <TouchableOpacity style={styles.card}>
+            <Image source={require("../../assets/images/disease.png")} style={styles.cardImage} />
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>Disease Detection</Text>
+              <Text style={styles.cardSubtitle}>Scan leaf images and detect diseases using AI.</Text>
+            </View>
+          </TouchableOpacity>
+        </Link>
 
         {/* Card 3: Fertilizer Plan */}
-        {/* <Link href="/fertilizer" asChild> */}
-        <TouchableOpacity style={styles.card}>
-          <Image source={require("../../assets/images/fertilizer.png")} style={styles.cardImage} />
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Fertilizer Plan</Text>
-            <Text style={styles.cardSubtitle}>Get personalized fertilizer recommendations.</Text>
-          </View>
-        </TouchableOpacity>
-        {/* </Link> */}
+        <Link href="/fertilizer-management" asChild>
+          <TouchableOpacity style={styles.card}>
+            <Image source={require("../../assets/images/fertilizer.png")} style={styles.cardImage} />
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>Fertilizer Plan</Text>
+              <Text style={styles.cardSubtitle}>Get personalized fertilizer recommendations.</Text>
+            </View>
+          </TouchableOpacity>
+        </Link> 
 
         {/* Card 4: Price Forecast */}
-        {/* <Link href="/pricing" asChild> */}
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => router.push("/price-management")}
-        >
-          <Image
-            source={require("../../assets/images/price.webp")}
-            style={styles.cardImage}
-          />
+        <Link href="/price-management/overview" asChild>
+        <TouchableOpacity style={styles.card}>
+          <Image source={require("../../assets/images/price.webp")} style={styles.cardImage}/>
           <View style={styles.cardContent}>
             <Text style={styles.cardTitle}>Price Forecast</Text>
-            <Text style={styles.cardSubtitle}>
-              Predict Aloe Vera leaf prices using market data.
-            </Text>
+            <Text style={styles.cardSubtitle}> Predict Aloe Vera leaf prices using market data.</Text>
           </View>
         </TouchableOpacity>
+        </Link>
 
 
         {/* </Link> */}

@@ -1,6 +1,22 @@
-import { Slot } from "expo-router";
+// app/_layout.tsx
 import { useKeepAwake } from "expo-keep-awake";
-
+import { Stack } from "expo-router";
+ 
 export default function RootLayout() {
-  return <Slot />; 
+  useKeepAwake();
+ 
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {/* Landing page will be recognized automatically */}
+      <Stack.Screen name="landing" />
+ 
+      {/* Tabs group */}
+      <Stack.Screen name="(tabs)" />
+ 
+      {/* Fertilizer stack */}
+      <Stack.Screen name="fertilizer-management" />
+
+      <Stack.Screen name="disease-management" />
+    </Stack>
+  );
 }
