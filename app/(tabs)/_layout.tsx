@@ -1,6 +1,6 @@
-import { Tabs } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from "expo-router";
 
 export default function TabsLayout() {
   return (
@@ -30,7 +30,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="information-circle" size={28} color={color} />,
         }}
       />
-      
     </Tabs>
   );
 }

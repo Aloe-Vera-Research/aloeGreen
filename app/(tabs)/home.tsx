@@ -9,13 +9,13 @@ export default function HomeScreen() {
       <View style={styles.cardsContainer}>
         {/* Card 1: Yield & Forecasting */}
         {/* <Link href="/yield" asChild> */}
-          <TouchableOpacity style={styles.card}>
-            <Image source={require("../../assets/images/yield.png")} style={styles.cardImage} />
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Yield & Forecasting</Text>
-              <Text style={styles.cardSubtitle}>Predict Aloe Vera yield based on weather & soil.</Text>
-            </View>
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.card}>
+          <Image source={require("../../assets/images/yield.png")} style={styles.cardImage} />
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Yield & Forecasting</Text>
+            <Text style={styles.cardSubtitle}>Predict Aloe Vera yield based on weather & soil.</Text>
+          </View>
+        </TouchableOpacity>
         {/* </Link> */}
 
         {/* Card 2: Disease Detection */}
@@ -41,14 +41,17 @@ export default function HomeScreen() {
         </Link> 
 
         {/* Card 4: Price Forecast */}
-        {/* <Link href="/pricing" asChild> */}
-          <TouchableOpacity style={styles.card}>
-            <Image source={require("../../assets/images/price.webp")} style={styles.cardImage} />
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Price Forecast</Text>
-              <Text style={styles.cardSubtitle}>Predict Aloe Vera leaf prices using market data.</Text>
-            </View>
-          </TouchableOpacity>
+        <Link href="/price-management/overview" asChild>
+        <TouchableOpacity style={styles.card}>
+          <Image source={require("../../assets/images/price.webp")} style={styles.cardImage}/>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Price Forecast</Text>
+            <Text style={styles.cardSubtitle}> Predict Aloe Vera leaf prices using market data.</Text>
+          </View>
+        </TouchableOpacity>
+        </Link>
+
+
         {/* </Link> */}
       </View>
     </ScrollView>
@@ -94,7 +97,7 @@ const styles = StyleSheet.create({
   },
   cardImage: {
     width: 70,
-    height:70,
+    height: 70,
     borderRadius: 12,
     marginRight: 16,
   },
