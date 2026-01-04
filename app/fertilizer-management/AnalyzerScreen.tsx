@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, StyleSheet, Dimensions } from "react-native";
-import { LineChart, BarChart } from "react-native-chart-kit";
 import { Ionicons } from "@expo/vector-icons";
+import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { BarChart, LineChart } from "react-native-chart-kit";
 
 export default function AnalyzerScreen() {
   const screenWidth = Dimensions.get("window").width - 32; // padding
