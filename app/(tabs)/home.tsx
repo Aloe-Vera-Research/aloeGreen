@@ -30,7 +30,7 @@ export default function HomeScreen() {
         </Link>
 
         {/* Card 3: Fertilizer Plan */}
-        <Link href="/fertilizer" asChild>
+        <Link href="/fertilizer-management" asChild>
           <TouchableOpacity style={styles.card}>
             <Image source={require("../../assets/images/fertilizer.png")} style={styles.cardImage} />
             <View style={styles.cardContent}>

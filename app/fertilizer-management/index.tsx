@@ -1,6 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useState } from "react";
 import { useRouter } from "expo-router";
+import { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const soilTypes = ["Sandy", "Loam", "Clay"];
 const plantStages = ["Baby", "Mature", "Damage Recovery"];
@@ -105,7 +105,7 @@ export default function FertilizerScreen() {
     } else {
       // Navigate to Fertilizer Plan screen and pass selected soil/stage/iotData if needed
       router.push({
-        pathname: "/fertilizer/plan",
+        pathname: "/fertilizer-management/plan",
         params: {
           soil,
           stage,
