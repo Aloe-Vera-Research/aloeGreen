@@ -30,9 +30,21 @@ type CardData = {
 };
 
 export default function HomeScreen() {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const [greeting, setGreeting] = useState("Good Morning");
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      <Text style={styles.heading}>Welcome to Aloe Green</Text>
+      <Text style={styles.subheading}>Smart Support System for Aloe Vera</Text>
+      <View style={styles.cardsContainer}>
+        {/* Card 1: Yield & Forecasting */}
+        <Link href="/yield" asChild>
+          <TouchableOpacity style={styles.card}>
+            <Image source={require("../../assets/images/yield.png")} style={styles.cardImage} />
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>Yield & Forecasting</Text>
+              <Text style={styles.cardSubtitle}>Predict Aloe Vera yield based on weather & soil.</Text>
+            </View>
+          </TouchableOpacity>
+        </Link>
 
   const cards: CardData[] = [
     {
@@ -209,137 +221,33 @@ export default function HomeScreen() {
       );
     }
 
-    return (
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        disabled={!card.enabled}
-        style={styles.cardWrapper}
-      >
-        {CardContent}
-      </TouchableOpacity>
-    );
-  };
+        {/* Card 3: Fertilizer Plan */}
 
-  return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#E8F5E9" />
-      <LinearGradient
-        colors={["#E8F5E9", "#C8E6C9", "#A5D6A7"]}
-        style={styles.container}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header Section */}
-          <Animated.View
-            style={[
-              styles.header,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <View style={styles.headerTop}>
-              <View>
-                <Text style={styles.greeting}>{greeting} 👋</Text>
-                <Text style={styles.heading}>Aloe Green</Text>
-              </View>
-              <TouchableOpacity style={styles.notificationButton}>
-                <Ionicons name="notifications-outline" size={24} color="#1B5E20" />
-                <View style={styles.notificationDot} />
-              </TouchableOpacity>
+        <Link href="/fertilizer-management" asChild>
+          <TouchableOpacity style={styles.card}>
+            <Image source={require("../../assets/images/fertilizer.png")} style={styles.cardImage} />
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>Fertilizer Plan</Text>
+              <Text style={styles.cardSubtitle}>Get personalized fertilizer recommendations.</Text>
             </View>
+          </TouchableOpacity>
+        </Link> 
 
-            <Text style={styles.subheading}>
-              Smart Support System for Aloe Vera Farming
-            </Text>
-
-            {/* Quick Stats Card */}
-            <View style={styles.statsCard}>
-              <LinearGradient
-                colors={["#2E7D32", "#1B5E20"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.statsGradient}
-              >
-                <View style={styles.statItem}>
-                  <Ionicons name="leaf" size={24} color="#81C784" />
-                  <View>
-                    <Text style={styles.statValue}>4</Text>
-                    <Text style={styles.statLabel}>Features</Text>
-                  </View>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Ionicons name="shield-checkmark" size={24} color="#81C784" />
-                  <View>
-                    <Text style={styles.statValue}>AI</Text>
-                    <Text style={styles.statLabel}>Powered</Text>
-                  </View>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Ionicons name="people" size={24} color="#81C784" />
-                  <View>
-                    <Text style={styles.statValue}>24/7</Text>
-                    <Text style={styles.statLabel}>Support</Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
-          </Animated.View>
-
-          {/* Features Section Header */}
-          <Animated.View
-            style={[
-              styles.sectionHeader,
-              {
-                opacity: fadeAnim,
-              },
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Our Features</Text>
-            <Text style={styles.sectionSubtitle}>
-              Explore powerful tools for your farm
-            </Text>
-          </Animated.View>
-
-          {/* Cards Grid (2x2) */}
-          <View style={styles.cardsGrid}>
-            {cards.map((card, index) => (
-              <CardComponent key={card.id} card={card} index={index} />
-            ))}
+        {/* Card 4: Price Forecast */}
+        <Link href="/price-management/overview" asChild>
+        <TouchableOpacity style={styles.card}>
+          <Image source={require("../../assets/images/price.webp")} style={styles.cardImage}/>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Price Forecast</Text>
+            <Text style={styles.cardSubtitle}> Predict Aloe Vera leaf prices using market data.</Text>
           </View>
+        </TouchableOpacity>
+        </Link>
 
-          {/* Help Section */}
-          <Animated.View
-            style={[
-              styles.helpCard,
-              {
-                opacity: fadeAnim,
-              },
-            ]}
-          >
-            <View style={styles.helpIconWrapper}>
-              <Ionicons name="help-circle" size={32} color="#2E7D32" />
-            </View>
-            <Text style={styles.helpTitle}>Need Help?</Text>
-            <Text style={styles.helpText}>
-              Our support team is here to assist you with any questions about Aloe
-              Vera farming.
-            </Text>
-            <TouchableOpacity style={styles.helpButton} activeOpacity={0.8}>
-              <Text style={styles.helpButtonText}>Contact Support</Text>
-              <Ionicons name="chatbubbles" size={18} color="#2E7D32" />
-            </TouchableOpacity>
-          </Animated.View>
-        </ScrollView>
-      </LinearGradient>
-    </>
+
+        {/* </Link> */}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -424,10 +332,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#FFFFFF",
+  cardImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 12,
+    marginRight: 16,
   },
   statLabel: {
     fontSize: 11,
