@@ -42,14 +42,17 @@ export default function HomeScreen() {
         </Link> 
 
         {/* Card 4: Price Forecast */}
-        {/* <Link href="/pricing" asChild> */}
-          <TouchableOpacity style={styles.card}>
-            <Image source={require("../../assets/images/price.webp")} style={styles.cardImage} />
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Price Forecast</Text>
-              <Text style={styles.cardSubtitle}>Predict Aloe Vera leaf prices using market data.</Text>
-            </View>
-          </TouchableOpacity>
+        <Link href="/price-management/overview" asChild>
+        <TouchableOpacity style={styles.card}>
+          <Image source={require("../../assets/images/price.webp")} style={styles.cardImage}/>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Price Forecast</Text>
+            <Text style={styles.cardSubtitle}> Predict Aloe Vera leaf prices using market data.</Text>
+          </View>
+        </TouchableOpacity>
+        </Link>
+
+
         {/* </Link> */}
       </View>
     </ScrollView>
@@ -95,7 +98,7 @@ const styles = StyleSheet.create({
   },
   cardImage: {
     width: 70,
-    height:70,
+    height: 70,
     borderRadius: 12,
     marginRight: 16,
   },
