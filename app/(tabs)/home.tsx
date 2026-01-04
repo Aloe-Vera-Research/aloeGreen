@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from "react-native";
 import { Link } from "expo-router";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function HomeScreen() {
   return (
@@ -8,7 +8,7 @@ export default function HomeScreen() {
       <Text style={styles.subheading}>Smart Support System for Aloe Vera</Text>
       <View style={styles.cardsContainer}>
         {/* Card 1: Yield & Forecasting */}
-        {/* <Link href="/yield" asChild> */}
+        <Link href="/yield" asChild>
           <TouchableOpacity style={styles.card}>
             <Image source={require("../../assets/images/yield.png")} style={styles.cardImage} />
             <View style={styles.cardContent}>
@@ -16,7 +16,7 @@ export default function HomeScreen() {
               <Text style={styles.cardSubtitle}>Predict Aloe Vera yield based on weather & soil.</Text>
             </View>
           </TouchableOpacity>
-        {/* </Link> */}
+        </Link>
 
         {/* Card 2: Disease Detection */}
         {/* <Link href="/detect" asChild>*/}
@@ -30,7 +30,7 @@ export default function HomeScreen() {
         {/* </Link>  */}
 
         {/* Card 3: Fertilizer Plan */}
-        {/* <Link href="/fertilizer" asChild> */}
+        <Link href="/fertilizer" asChild>
           <TouchableOpacity style={styles.card}>
             <Image source={require("../../assets/images/fertilizer.png")} style={styles.cardImage} />
             <View style={styles.cardContent}>
@@ -38,7 +38,7 @@ export default function HomeScreen() {
               <Text style={styles.cardSubtitle}>Get personalized fertilizer recommendations.</Text>
             </View>
           </TouchableOpacity>
-        {/* </Link> */}
+        </Link> 
 
         {/* Card 4: Price Forecast */}
         {/* <Link href="/pricing" asChild> */}
