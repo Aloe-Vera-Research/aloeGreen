@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState, useRef } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { Platform } from "react-native-reanimated/lib/typescript/ReanimatedModule/js-reanimated/JSReanimated";
 
 const { width } = Dimensions.get("window");
 
@@ -19,13 +20,21 @@ export default function YieldDashboard() {
   const router = useRouter();
   const [plantCount, setPlantCount] = useState<number>(0);
   const [plantAgeMonths, setPlantAgeMonths] = useState<number>(0);
+  const [perPlantYield, setPerPlantYield] = useState<number>(0);
+
+  const FARM_SETUP_KEY = "FARM_SETUP";
+const API_URL = "http://192.168.1.6:8000/predict";
+
+
+
+
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   // Hard-coded prototype values
-  const perPlantYield = 220; // grams
+  // const perPlantYield = 220; // grams
   const totalYieldKg = ((perPlantYield * plantCount) / 1000).toFixed(1);
   const modelConfidence = 0.89;
   const lastUpdated = "Today • 10:45 AM";
@@ -54,21 +63,72 @@ export default function YieldDashboard() {
     ]).start();
   }, []);
 
+  const fetchYieldPrediction = async (plantAgeMonths: number) => {
+  try {
+    const payload = {
+      soil_ph: 6.5,
+      soil_organic_matter_pct: 2.8,
+      soil_moisture_pct: 38,
+      irrigation_mm: 4,
+      temp_day_c: 32.5,
+      humidity_pct: 70,
+      rainfall_mm: 1.2,
+
+      // 🔥 MUST be numbers
+      plant_age_months: Number(plantAgeMonths),
+      soil_texture_enc: 1,
+
+      // optional (backend can also auto-generate)
+      timestamp: new Date().toISOString(),
+    };
+
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("BACKEND ERROR:", err);
+      return;
+    }
+
+    const data = await response.json();
+    setPerPlantYield(data.gel_weight_g);
+
+  } catch (err) {
+    console.error("FETCH FAILED:", err);
+  }
+};
+
+
+
+
   const loadFarmSetup = async () => {
-    const data = await AsyncStorage.getItem("farmSetup");
-    if (!data) return;
+  const data = await AsyncStorage.getItem("FARM_SETUP");
+  if (!data) return;
 
-    const parsed = JSON.parse(data);
-    setPlantCount(parsed.plantCount);
+  const parsed = JSON.parse(data);
+  setPlantCount(parsed.plantCount);
 
-    const plantingDate = new Date(parsed.plantingDate);
-    const today = new Date();
-    const diffMonths =
-      (today.getFullYear() - plantingDate.getFullYear()) * 12 +
-      (today.getMonth() - plantingDate.getMonth());
+  const plantingDate = new Date(parsed.plantingDate);
+  const today = new Date();
 
-    setPlantAgeMonths(diffMonths);
-  };
+  const rawMonths =
+  (today.getFullYear() - plantingDate.getFullYear()) * 12 +
+  (today.getMonth() - plantingDate.getMonth());
+
+// ✅ API requires >= 1
+const safeMonths = Math.max(1, rawMonths);
+
+setPlantAgeMonths(safeMonths);
+fetchYieldPrediction(safeMonths);
+
+};
+
 
   const quickActions = [
     {
@@ -164,7 +224,10 @@ export default function YieldDashboard() {
               </View>
               <Text style={styles.mainLabel}>Per Plant Yield</Text>
             </View>
-            <Text style={styles.mainValue}>{perPlantYield}g</Text>
+            <Text style={styles.mainValue}>
+  {perPlantYield.toFixed(2)}g
+</Text>
+
             <View style={styles.mainCardFooter}>
               <Ionicons name="information-circle" size={16} color="rgba(255,255,255,0.8)" />
               <Text style={styles.mainNote}>

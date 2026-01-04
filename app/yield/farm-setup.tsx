@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+
+import { useEffect } from "react";
+
 import {
   View,
   Text,
@@ -18,6 +21,8 @@ import { LinearGradient } from "expo-linear-gradient";
 
 export default function FarmSetupScreen() {
   const router = useRouter();
+  
+const FARM_SETUP_KEY = "FARM_SETUP";
 
   const [farmName, setFarmName] = useState("");
   const [plantCount, setPlantCount] = useState("");
@@ -26,6 +31,22 @@ export default function FarmSetupScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState({});
   const [focusedField, setFocusedField] = useState(null);
+  const isEditing = farmName.length > 0;
+
+useEffect(() => {
+  const loadExistingFarmSetup = async () => {
+    const saved = await AsyncStorage.getItem(FARM_SETUP_KEY);
+    if (!saved) return;
+
+    const data = JSON.parse(saved);
+    setFarmName(data.farmName || "");
+    setPlantCount(String(data.plantCount || ""));
+    setSoilType(data.soilType || "Loamy");
+    setPlantingDate(new Date(data.plantingDate));
+  };
+
+  loadExistingFarmSetup();
+}, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -59,8 +80,8 @@ export default function FarmSetupScreen() {
     };
 
     try {
-      await AsyncStorage.setItem("farmConfig", JSON.stringify(farmData));
-      await AsyncStorage.setItem("farmConfigured", "true");
+      await AsyncStorage.setItem(FARM_SETUP_KEY, JSON.stringify(farmData));
+
       router.replace("/yield");
     } catch (error) {
       alert("Error saving farm configuration. Please try again.");
@@ -297,7 +318,10 @@ export default function FarmSetupScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.saveText}>Continue to Dashboard</Text>
+            <Text style={styles.saveText}>
+  {isEditing ? "Update Farm Details" : "Continue to Dashboard"}
+</Text>
+
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>
