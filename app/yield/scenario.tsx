@@ -286,124 +286,13 @@ export default function ScenarioScreen() {
         </View>
 
         {/* Temperature Control */}
-        <View style={styles.controlCard}>
-          <View style={styles.controlHeader}>
-            <View style={styles.controlLeft}>
-              <View style={[styles.controlIcon, { backgroundColor: '#FFF3E0' }]}>
-                <Ionicons name="thermometer" size={20} color="#F57C00" />
-              </View>
-              <View>
-                <Text style={styles.controlTitle}>Temperature</Text>
-                <Text style={styles.controlSubtitle}>Average daily temp</Text>
-              </View>
-            </View>
-            <View style={styles.controlValueContainer}>
-              <Text style={styles.controlValue}>{temperature}</Text>
-              <Text style={styles.controlUnit}>°C</Text>
-            </View>
-          </View>
-          <Slider
-            minimumValue={20}
-            maximumValue={45}
-            step={1}
-            value={temperature}
-            onValueChange={setTemperature}
-            minimumTrackTintColor="#F57C00"
-            maximumTrackTintColor="#E0E0E0"
-            thumbTintColor="#F57C00"
-            style={styles.slider}
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>20</Text>
-            <Text style={styles.sliderLabel}>32</Text>
-            <Text style={styles.sliderLabel}>45°C</Text>
-          </View>
-          <View style={styles.impactBadge}>
-            <Text style={[styles.impactText, { color: getImpactColor(temperatureImpact) }]}>
-              Impact: {temperatureImpact > 0 ? '+' : ''}{temperatureImpact.toFixed(1)}g
-            </Text>
-          </View>
-        </View>
+        
 
         {/* Fertilizer Control */}
-        <View style={styles.controlCard}>
-          <View style={styles.controlHeader}>
-            <View style={styles.controlLeft}>
-              <View style={[styles.controlIcon, { backgroundColor: '#F1F8F4' }]}>
-                <Ionicons name="nutrition" size={20} color="#2E7D32" />
-              </View>
-              <View>
-                <Text style={styles.controlTitle}>Fertilizer</Text>
-                <Text style={styles.controlSubtitle}>Application level</Text>
-              </View>
-            </View>
-            <View style={styles.controlValueContainer}>
-              <Text style={styles.controlValue}>{fertilizer}</Text>
-              <Text style={styles.controlUnit}>%</Text>
-            </View>
-          </View>
-          <Slider
-            minimumValue={0}
-            maximumValue={100}
-            step={5}
-            value={fertilizer}
-            onValueChange={setFertilizer}
-            minimumTrackTintColor="#2E7D32"
-            maximumTrackTintColor="#E0E0E0"
-            thumbTintColor="#2E7D32"
-            style={styles.slider}
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>0</Text>
-            <Text style={styles.sliderLabel}>50</Text>
-            <Text style={styles.sliderLabel}>100%</Text>
-          </View>
-          <View style={styles.impactBadge}>
-            <Text style={[styles.impactText, { color: getImpactColor(fertilizerImpact) }]}>
-              Impact: {fertilizerImpact > 0 ? '+' : ''}{fertilizerImpact.toFixed(1)}g
-            </Text>
-          </View>
-        </View>
+        
 
         {/* Sunlight Control */}
-        <View style={styles.controlCard}>
-          <View style={styles.controlHeader}>
-            <View style={styles.controlLeft}>
-              <View style={[styles.controlIcon, { backgroundColor: '#FFF9C4' }]}>
-                <Ionicons name="sunny" size={20} color="#F9A825" />
-              </View>
-              <View>
-                <Text style={styles.controlTitle}>Sunlight</Text>
-                <Text style={styles.controlSubtitle}>Daily exposure</Text>
-              </View>
-            </View>
-            <View style={styles.controlValueContainer}>
-              <Text style={styles.controlValue}>{sunlight}</Text>
-              <Text style={styles.controlUnit}>hrs</Text>
-            </View>
-          </View>
-          <Slider
-            minimumValue={0}
-            maximumValue={12}
-            step={1}
-            value={sunlight}
-            onValueChange={setSunlight}
-            minimumTrackTintColor="#F9A825"
-            maximumTrackTintColor="#E0E0E0"
-            thumbTintColor="#F9A825"
-            style={styles.slider}
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>0</Text>
-            <Text style={styles.sliderLabel}>6</Text>
-            <Text style={styles.sliderLabel}>12 hrs</Text>
-          </View>
-          <View style={styles.impactBadge}>
-            <Text style={[styles.impactText, { color: getImpactColor(sunlightImpact) }]}>
-              Impact: {sunlightImpact > 0 ? '+' : ''}{sunlightImpact.toFixed(1)}g
-            </Text>
-          </View>
-        </View>
+        
       </View>
 
       {/* Insights Card */}
