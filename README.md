@@ -1,50 +1,31 @@
-# Welcome to AloeGreen  👋
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# Aloe Green - mart Agriculture Support System for Aloe Vera
 
-## Get started
+AloeGreen is a smart mobile-based agriculture support system designed to help Aloe Vera farmers in Sri Lanka make better farming decisions using Artificial Intelligence (AI) and Machine Learning (ML).
 
-1. Install dependencies
+The system addresses major challenges faced by farmers such as plant diseases, improper fertilizer usage, unpredictable weather conditions, low yield planning, and unstable market prices. AloeGreen integrates multiple intelligent modules into a single, easy-to-use mobile application, allowing farmers with no technical background to benefit from modern agricultural technologies.
 
-   ```bash
-   npm install
-   ```
 
-2. Start the app
+## Features
 
-   ```bash
-   npx expo start
-   ```
+- Yield Prediction  
+The system predicts how much Aloe Vera yield a farmer can expect before planting starts.It uses real time soil and environmental data to help farmers plan land use, resources, and income in advance.
+- Disease Detection  
+The system predicts how much Aloe Vera yield a farmer can expect before planting starts.
+It uses soil and environmental data to help farmers plan land use, resources, and income in advance.
+- Price Forecasting 
+The system predicts future Aloe Vera market prices using past market data and real time data.
+This helps farmers decide the best time and place to sell for higher profit.
+- Fertilizer Recommendation
+The system recommends the right fertilizer, correct amount, and best time to apply based on real time soil condition and plant stage.
+This improves plant growth while avoiding fertilizer waste.
 
-In the output, you'll find options to open the app in a
+## Logo
+![Logo](https://i.ibb.co/svW6cZy4/Aleo.jpg)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Architecture Diagram
+![Logo](https://i.ibb.co/CpFbg0Nm/Hig-Level-TAF.jpg)
+## 🔗 Git Repo Link
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+https://github.com/Aloe-Vera-Research/aloeGreen
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
