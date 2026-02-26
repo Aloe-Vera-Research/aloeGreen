@@ -1,11 +1,6 @@
-import {
-  Calendar,
-  CloudRain,
-  Droplet,
-  Leaf,
-  Sun,
-} from "lucide-react-native";
+import { Leaf } from "lucide-react-native";
 import React, { useState } from "react";
+import useAxios from "@/hooks/useAxios";
 import {
   Alert,
   ScrollView,
@@ -13,13 +8,11 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 /* ================= TYPES ================= */
-
-type Disaster = "none" | "flood" | "drought" | "";
 
 type FormState = {
   productionQuantity: string;
@@ -28,11 +21,9 @@ type FormState = {
   webPrice: string;
   plantDate: string;
   harvestDate: string;
-  naturalDisaster: Disaster;
 };
 
 type Errors = Partial<Record<keyof FormState, string>>;
-type ActiveDate = "plantDate" | "harvestDate" | null;
 
 /* ================= MAIN ================= */
 
@@ -44,12 +35,22 @@ export default function AddData() {
     webPrice: "",
     plantDate: "",
     harvestDate: "",
-    naturalDisaster: "",
   };
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Errors>({});
-  const [activeDate, setActiveDate] = useState<ActiveDate>(null);
+  const [loading, setLoading] = useState(false);
+  const axios = useAxios();
+
+  /* ================= SAFE ALERT ================= */
+
+  const showMessage = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
   /* ================= HELPERS ================= */
 
@@ -58,25 +59,10 @@ export default function AddData() {
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
-  const formatDate = (d: Date) => d.toISOString().split("T")[0];
-
   const resetForm = () => {
-    Alert.alert(
-      "Clear all data?",
-      "This will remove all entered values.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: () => {
-            setForm(initialForm);
-            setErrors({});
-            setActiveDate(null);
-          },
-        },
-      ]
-    );
+    showMessage("Cleared", "All form data has been cleared.");
+    setForm(initialForm);
+    setErrors({});
   };
 
   const validate = (): boolean => {
@@ -94,12 +80,6 @@ export default function AddData() {
     if (!form.webPrice)
       e.webPrice = "Please enter web market price";
 
-    if (!form.plantDate)
-      e.plantDate = "Please select plant date";
-
-    if (!form.harvestDate)
-      e.harvestDate = "Please select harvest date";
-
     if (
       form.plantDate &&
       form.harvestDate &&
@@ -108,24 +88,52 @@ export default function AddData() {
       e.harvestDate = "Harvest date must be after plant date";
     }
 
-    if (!form.naturalDisaster)
-      e.naturalDisaster = "Please select environmental condition";
-
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const onSave = () => {
+  const onSave = async () => {
     if (!validate()) {
-      Alert.alert(
+      showMessage(
         "Incomplete Information",
         "Please correct the highlighted fields."
       );
       return;
     }
 
-    Alert.alert("Success", "Production data saved successfully 🌱");
-    console.log(form);
+    setLoading(true);
+
+    const payload: any = {
+      date: new Date().toISOString().split("T")[0],
+      productionQuantity: parseInt(form.productionQuantity, 10) || 0,
+      totalCost: parseFloat(form.totalCost) || 0,
+      farmerPrice: parseFloat(form.farmerPrice) || 0,
+      webPrice: parseFloat(form.webPrice) || 0,
+    };
+
+    if (form.plantDate) payload.plantDate = form.plantDate;
+    if (form.harvestDate) payload.harvestDate = form.harvestDate;
+
+    try {
+      const res = await axios.post("/data/data", payload);
+
+      showMessage(
+        "✅ Success",
+        `${res.data?.message}\n\nDisaster Status: ${res.data?.naturalDisaster}`
+      );
+
+      setForm(initialForm);
+      setErrors({});
+    } catch (err: any) {
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Something went wrong while saving.";
+
+      showMessage("❌ Failed", errMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ================= UI ================= */
@@ -160,6 +168,7 @@ export default function AddData() {
           value={form.productionQuantity}
           placeholder="e.g. 1250"
           error={errors.productionQuantity}
+          keyboardType="numeric"
           onChange={(v: string) => update("productionQuantity", v)}
         />
 
@@ -168,6 +177,7 @@ export default function AddData() {
           value={form.totalCost}
           placeholder="e.g. 180000"
           error={errors.totalCost}
+          keyboardType="numeric"
           onChange={(v: string) => update("totalCost", v)}
         />
 
@@ -176,6 +186,7 @@ export default function AddData() {
           value={form.farmerPrice}
           placeholder="e.g. 210"
           error={errors.farmerPrice}
+          keyboardType="numeric"
           onChange={(v: string) => update("farmerPrice", v)}
         />
 
@@ -184,88 +195,58 @@ export default function AddData() {
           value={form.webPrice}
           placeholder="e.g. 245"
           error={errors.webPrice}
+          keyboardType="numeric"
           onChange={(v: string) => update("webPrice", v)}
         />
 
-        <DateInput
-          label="Plant Date"
+        <Input
+          label="Plant Date (YYYY-MM-DD)"
           value={form.plantDate}
+          placeholder="e.g. 2024-05-01"
           error={errors.plantDate}
-          onPress={() => setActiveDate("plantDate")}
+          onChange={(v: string) => update("plantDate", v)}
         />
 
-        <DateInput
-          label="Harvest Date"
+        <Input
+          label="Harvest Date (YYYY-MM-DD)"
           value={form.harvestDate}
+          placeholder="e.g. 2024-10-01"
           error={errors.harvestDate}
-          onPress={() => setActiveDate("harvestDate")}
+          onChange={(v: string) => update("harvestDate", v)}
         />
 
-        <Text style={{ fontWeight: "600", marginTop: 16 }}>
-          Environmental Condition
-        </Text>
-
-        <View style={{ flexDirection: "row", gap: 12, marginTop: 10 }}>
-          <Env
-            label="Normal"
-            icon={<Sun color="#facc15" />}
-            active={form.naturalDisaster === "none"}
-            onPress={() => update("naturalDisaster", "none")}
-          />
-          <Env
-            label="Flood"
-            icon={<Droplet color="#0ea5e9" />}
-            active={form.naturalDisaster === "flood"}
-            onPress={() => update("naturalDisaster", "flood")}
-          />
-          <Env
-            label="Drought"
-            icon={<CloudRain color="#2563eb" />}
-            active={form.naturalDisaster === "drought"}
-            onPress={() => update("naturalDisaster", "drought")}
-          />
-        </View>
-
-        {errors.naturalDisaster && (
-          <Text style={{ color: "#dc2626", marginTop: 6 }}>
-            {errors.naturalDisaster}
-          </Text>
-        )}
-
-        {/* ACTION BUTTONS */}
         <View style={{ marginTop: 28, gap: 12 }}>
-          <Button title="Save Data" onPress={onSave} />
+          <Button
+            title={loading ? "Saving..." : "Save Data"}
+            onPress={onSave}
+            disabled={loading}
+          />
           <ResetButton title="Reset / Clear Data" onPress={resetForm} />
         </View>
       </ScrollView>
-
-      {/* DATE PICKER */}
-      <DateTimePickerModal
-        isVisible={activeDate !== null}
-        mode="date"
-        display="inline"
-        themeVariant="light"
-        onConfirm={(date: Date) => {
-          if (activeDate) update(activeDate, formatDate(date));
-          setActiveDate(null);
-        }}
-        onCancel={() => setActiveDate(null)}
-      />
     </SafeAreaView>
   );
 }
 
-/* ================= REUSABLE ================= */
+/* ================= REUSABLE COMPONENTS ================= */
 
-function Input({ label, value, placeholder, error, onChange }: any) {
+function Input({
+  label,
+  value,
+  placeholder,
+  error,
+  onChange,
+  keyboardType = "default",
+}: any) {
   return (
     <View style={{ marginBottom: 16 }}>
       <Text style={{ fontWeight: "600" }}>{label}</Text>
+
       <TextInput
         value={value}
         placeholder={placeholder}
         placeholderTextColor="#94a3b8"
-        keyboardType="numeric"
+        keyboardType={keyboardType}
         onChangeText={onChange}
         style={{
           borderWidth: 1,
@@ -276,67 +257,25 @@ function Input({ label, value, placeholder, error, onChange }: any) {
           backgroundColor: "#fff",
         }}
       />
-      {error && <Text style={{ color: "#dc2626" }}>{error}</Text>}
+
+      {error && (
+        <Text style={{ color: "#dc2626", marginTop: 4 }}>{error}</Text>
+      )}
     </View>
   );
 }
 
-function DateInput({ label, value, error, onPress }: any) {
-  return (
-    <TouchableOpacity onPress={onPress} style={{ marginBottom: 12 }}>
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: error ? "#dc2626" : "#e5e7eb",
-          borderRadius: 14,
-          padding: 14,
-          marginTop: 6,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          backgroundColor: "#fff",
-        }}
-      >
-        <Calendar size={18} color="#000" />
-        <Text style={{ color: value ? "#111827" : "#94a3b8" }}>
-          {value || "Select date"}
-        </Text>
-      </View>
-      {error && <Text style={{ color: "#dc2626" }}>{error}</Text>}
-    </TouchableOpacity>
-  );
-}
-
-function Env({ label, icon, active, onPress }: any) {
+function Button({ title, onPress, disabled }: any) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={{
-        flex: 1,
-        padding: 14,
-        borderRadius: 16,
-        alignItems: "center",
-        backgroundColor: active ? "#dcfce7" : "#fff",
-        borderWidth: 1,
-        borderColor: active ? "#16a34a" : "#e5e7eb",
-      }}
-    >
-      {icon}
-      <Text style={{ marginTop: 6, fontWeight: "600" }}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function Button({ title, onPress }: any) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
+      disabled={disabled}
       style={{
         padding: 14,
         borderRadius: 16,
         alignItems: "center",
         backgroundColor: "#16a34a",
+        opacity: disabled ? 0.6 : 1,
       }}
     >
       <Text style={{ fontWeight: "700", color: "#fff" }}>{title}</Text>

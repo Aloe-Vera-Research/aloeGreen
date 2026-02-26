@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
     View,
     TextInput,
@@ -48,10 +49,11 @@ export default function ChatbotScreen() {
 
     const checkAvailableModels = async () => {
         try {
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`
+            const response = await axios.get(
+                `https://generativelanguage.googleapis.com/v1beta/models`,
+                { params: { key: API_KEY } }
             );
-            const data = await response.json();
+            const data = response.data;
 
             const models = data.models || [];
             const freeModels = [
@@ -91,26 +93,23 @@ export default function ChatbotScreen() {
         setUserInput("");
 
         try {
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${availableModel}:generateContent?key=${API_KEY}`,
+            const response = await axios.post(
+                `https://generativelanguage.googleapis.com/v1beta/models/${availableModel}:generateContent`,
                 {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                parts: [
-                                    {
-                                        text: `${systemInstruction}\nUser: ${currentInput}\nRespond only in plain text.`,
-                                    },
-                                ],
-                            },
-                        ],
-                    }),
-                }
+                    contents: [
+                        {
+                            parts: [
+                                {
+                                    text: `${systemInstruction}\nUser: ${currentInput}\nRespond only in plain text.`,
+                                },
+                            ],
+                        },
+                    ],
+                },
+                { params: { key: API_KEY } }
             );
 
-            const data = await response.json();
+            const data = response.data;
             const rawText =
                 data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
             const cleanedText = cleanMarkdown(rawText);
