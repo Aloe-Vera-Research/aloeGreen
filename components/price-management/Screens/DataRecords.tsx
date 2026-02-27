@@ -7,8 +7,10 @@ import {
   ShoppingCart,
   Sprout,
   Wallet,
+  TrendingUp,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ScrollView,
   Text,
@@ -31,6 +33,7 @@ type Record = {
   plantDate?: string;
   harvestDate?: string;
   naturalDisaster: string;
+  predictedPrice?: number;
   createdAt?: string;
 };
 
@@ -41,11 +44,7 @@ export default function DataRecords() {
   const [loading, setLoading] = useState(true);
   const [showSelector, setShowSelector] = useState(false);
 
-  useEffect(() => {
-    fetchRecords();
-  }, [axios]);
-
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get("/data/data");
@@ -59,7 +58,19 @@ export default function DataRecords() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [axios]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
+
+  // Refetch whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecords();
+    }, [fetchRecords])
+  );
 
   if (loading) {
     return (
@@ -192,6 +203,7 @@ export default function DataRecords() {
                     </Text>
                     <Text style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
                       {item.naturalDisaster}
+                      {item.predictedPrice && ` • Pred: Rs. ${item.predictedPrice}`}
                     </Text>
                   </Pressable>
                 )}
@@ -266,6 +278,18 @@ export default function DataRecords() {
               value={farmData.naturalDisaster}
             />
           </Section>
+
+          {/* PREDICTED PRICE */}
+          {farmData.predictedPrice && (
+            <Section title="AI Model Prediction">
+              <Record
+                icon={<TrendingUp size={18} color="#059669" />}
+                bg="#d1fae5"
+                label="Predicted Leaf Price"
+                value={`Rs. ${farmData.predictedPrice.toLocaleString()}`}
+              />
+            </Section>
+          )}
 
           {/* ================= FINANCIAL SUMMARY ================= */}
           <View

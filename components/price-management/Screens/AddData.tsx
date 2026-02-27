@@ -2,13 +2,13 @@ import { Leaf } from "lucide-react-native";
 import React, { useState } from "react";
 import useAxios from "@/hooks/useAxios";
 import {
-  Alert,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
   Platform,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -42,14 +42,29 @@ export default function AddData() {
   const [loading, setLoading] = useState(false);
   const axios = useAxios();
 
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState<"success" | "error">("success");
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalPredictedPrice, setModalPredictedPrice] = useState<number | null>(null);
+  const [modalDisaster, setModalDisaster] = useState("");
+
   /* ================= SAFE ALERT ================= */
 
-  const showMessage = (title: string, message: string) => {
-    if (Platform.OS === "web") {
-      window.alert(`${title}\n\n${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
+  const showModal = (
+    type: "success" | "error",
+    title: string,
+    message: string,
+    predictedPrice?: number,
+    disaster?: string
+  ) => {
+    setModalType(type);
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalPredictedPrice(predictedPrice || null);
+    setModalDisaster(disaster || "");
+    setModalVisible(true);
   };
 
   /* ================= HELPERS ================= */
@@ -60,9 +75,9 @@ export default function AddData() {
   };
 
   const resetForm = () => {
-    showMessage("Cleared", "All form data has been cleared.");
     setForm(initialForm);
     setErrors({});
+    showModal("success", "✅ Cleared", "All form data has been cleared.");
   };
 
   const validate = (): boolean => {
@@ -94,7 +109,8 @@ export default function AddData() {
 
   const onSave = async () => {
     if (!validate()) {
-      showMessage(
+      showModal(
+        "error",
         "Incomplete Information",
         "Please correct the highlighted fields."
       );
@@ -115,29 +131,38 @@ export default function AddData() {
     if (form.harvestDate) payload.harvestDate = form.harvestDate;
 
     try {
-      const res = await axios.post("/data/data", payload);
+      let predictedPrice = 0;
+      let disaster = "";
 
-      const savedMsg = res.data?.message || "Production data saved successfully";
-      const disaster = res.data?.naturalDisaster;
-
-      // call prediction endpoint using the same values (model expects kg, lkr, etc)
-      let priceMsg = "";
+      // First, call prediction endpoint
       try {
         const predictRes = await axios.post("/api/predict-price", {
           production_qty_kg: parseInt(form.productionQuantity, 10) || 0,
           total_cost_lkr: parseFloat(form.totalCost) || 0,
           web_price_lkr: parseFloat(form.webPrice) || 0,
-          natural_disaster: disaster || "No disaster",
+          natural_disaster: "No disaster",
         });
-        priceMsg = `\nPredicted leaf price: ${predictRes.data?.predictedPrice}`;
+        predictedPrice = predictRes.data?.predictedPrice || 0;
       } catch (pErr: any) {
         console.error("prediction error", pErr);
-        priceMsg = "\n(Prediction failed)";
+        predictedPrice = 0;
       }
 
-      showMessage(
-        "Success",
-        `${savedMsg}\n\nDisaster Status: ${disaster || "unknown"}${priceMsg}`
+      // Add predicted price to payload
+      if (predictedPrice > 0) {
+        payload.predictedPrice = predictedPrice;
+      }
+
+      // Then save data with predicted price
+      const res = await axios.post("/data/data", payload);
+      disaster = res.data?.naturalDisaster || "No disaster";
+
+      showModal(
+        "success",
+        "✅ Success",
+        res.data?.message || "Production data saved successfully",
+        predictedPrice,
+        disaster
       );
 
       setForm(initialForm);
@@ -148,7 +173,7 @@ export default function AddData() {
         err?.message ||
         "Something went wrong while saving.";
 
-      showMessage("Failed", errMsg);
+      showModal("error", "❌ Failed", errMsg);
     } finally {
       setLoading(false);
     }
@@ -242,6 +267,143 @@ export default function AddData() {
           <ResetButton title="Reset / Clear Data" onPress={resetForm} />
         </View>
       </ScrollView>
+
+      {/* CUSTOM SUCCESS/ERROR MODAL */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 24,
+              padding: 24,
+              width: "100%",
+              maxWidth: 380,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.25,
+              shadowRadius: 16,
+              elevation: 8,
+            }}
+          >
+            {/* Icon & Title */}
+            <View style={{ alignItems: "center", marginBottom: 16 }}>
+              <Text style={{ fontSize: 32, marginBottom: 10 }}>
+                {modalType === "success" ? "✅" : "❌"}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: modalType === "success" ? "#16a34a" : "#dc2626",
+                }}
+              >
+                {modalTitle}
+              </Text>
+            </View>
+
+            {/* Message */}
+            <Text
+              style={{
+                fontSize: 14,
+                color: "#6b7280",
+                textAlign: "center",
+                marginBottom: 16,
+                lineHeight: 20,
+              }}
+            >
+              {modalMessage}
+            </Text>
+
+            {/* Predicted Price Card (Success Only) */}
+            {modalType === "success" && modalPredictedPrice !== null && (
+              <View
+                style={{
+                  backgroundColor: "#f0fdf4",
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 16,
+                  borderWidth: 2,
+                  borderColor: "#16a34a",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: "#6b7280",
+                    marginBottom: 6,
+                  }}
+                >
+                  Predicted Leaf Price
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: "700",
+                    color: "#16a34a",
+                  }}
+                >
+                  Rs. {modalPredictedPrice.toLocaleString()}
+                </Text>
+              </View>
+            )}
+
+            {/* Disaster Status (Success Only) */}
+            {modalType === "success" && modalDisaster && (
+              <View
+                style={{
+                  backgroundColor: "#fef3c7",
+                  borderRadius: 16,
+                  padding: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: "#92400e",
+                  }}
+                >
+                  Disaster Status: <Text style={{ fontWeight: "700" }}>{modalDisaster}</Text>
+                </Text>
+              </View>
+            )}
+
+            {/* Close Button */}
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              style={{
+                paddingVertical: 12,
+                borderRadius: 12,
+                backgroundColor: modalType === "success" ? "#16a34a" : "#dc2626",
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  fontWeight: "700",
+                  color: "#fff",
+                  fontSize: 16,
+                }}
+              >
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
