@@ -6,7 +6,8 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ScrollView,
   Text,
@@ -53,11 +54,7 @@ export default function RiskManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchRiskAnalysis();
-  }, [axios]);
-
-  const fetchRiskAnalysis = async () => {
+  const fetchRiskAnalysis = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -75,7 +72,19 @@ export default function RiskManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [axios]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchRiskAnalysis();
+  }, [fetchRiskAnalysis]);
+
+  // Refetch whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchRiskAnalysis();
+    }, [fetchRiskAnalysis])
+  );
 
   if (loading) {
     return (
