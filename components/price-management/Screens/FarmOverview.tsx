@@ -7,7 +7,7 @@ import {
   ShoppingCart,
   Wallet,
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dimensions,
   Pressable,
@@ -15,63 +15,135 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
+import useAxios from "@/hooks/useAxios";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function FarmOverview() {
   const router = useRouter();
+  const axios = useAxios();
 
-  const [period, setPeriod] = useState<"7days" | "30days">("7days");
+  const [period, setPeriod] = useState<"30days" | "6months" | "1year" | "all">("30days");
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
     index: number;
   } | null>(null);
 
-  /* ---------------- DATA ---------------- */
-  const totalProduction = 1250;
-  const farmerPrice = 210;
-  const webPrice = 245;
-  const totalCost = 180000;
+  const [summary, setSummary] = useState<{
+    totalProduction: number;
+    averageFarmerPrice: number;
+    records: number;
+    recordsList: any[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // retrieve summary and records from backend
+  useEffect(() => {
+    fetchDashboard();
+  }, [axios]);
+
+  const fetchDashboard = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("/api/dashboard");
+      setSummary(res.data);
+    } catch (err) {
+      console.error("Failed to load dashboard", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ---------------- DATA ---------------- */
+  // values are derived from the dashboard API result once loaded
   const rs = (v: number) => `Rs. ${v.toLocaleString()}`;
 
-  const chartData7Days = {
-    labels: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"],
-    datasets: [
-      {
-        data: [205, 208, 207, 210, 209, 211, 210],
-        color: () => "#2563eb",
-        strokeWidth: 3,
-      },
-      {
-        data: [240, 243, 242, 245, 244, 246, 245],
-        color: () => "#16a34a",
-        strokeWidth: 3,
-      },
-    ],
-  };
+  if (loading || !summary) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={{ marginTop: 10, color: "#666" }}>Loading overview...</Text>
+      </SafeAreaView>
+    );
+  }
 
-  const chartData30Days = {
-    labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
-    datasets: [
-      {
-        data: [200, 205, 208, 210],
-        color: () => "#2563eb",
-        strokeWidth: 3,
-      },
-      {
-        data: [235, 240, 243, 245],
-        color: () => "#16a34a",
-        strokeWidth: 3,
-      },
-    ],
-  };
+  const latest = summary.recordsList[0] || null;
+  const now = new Date();
+  const filteredRecords = summary.recordsList.filter((rec) => {
+    if (!rec.date) return false;
+    const d = new Date(rec.date);
+    const diff = now.getTime() - d.getTime();
+    switch (period) {
+      case "30days":
+        return diff <= 30 * 24 * 60 * 60 * 1000;
+      case "6months":
+        return diff <= 183 * 24 * 60 * 60 * 1000;
+      case "1year":
+        return diff <= 365 * 24 * 60 * 60 * 1000;
+      case "all":
+      default:
+        return true;
+    }
+  }) || [];
 
-  const chartData = period === "7days" ? chartData7Days : chartData30Days;
+
+let sortedRecords = [...filteredRecords].sort(
+  (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+);
+
+
+if (period === "1year" || period === "all") {
+  const maxPoints = 20;
+
+  if (sortedRecords.length > maxPoints) {
+    const step = Math.ceil(sortedRecords.length / maxPoints);
+    sortedRecords = sortedRecords.filter((_, index) => index % step === 0);
+  }
+}
+
+const formatDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+};
+
+const allDates = sortedRecords.map((r) => r.date);
+const farmerPrices = sortedRecords.map((r) => r.farmerPrice);
+const webPrices = sortedRecords.map((r) => r.webPrice);
+
+// Show only max 5 labels evenly spaced
+const maxLabels = 5;
+const labelStep =
+  allDates.length > maxLabels
+    ? Math.ceil(allDates.length / maxLabels)
+    : 1;
+
+const visibleLabels = allDates.map((label, index) => {
+  if (index === 0) return formatDate(label); // first
+  if (index === allDates.length - 1) return formatDate(label); // last
+  if (index % labelStep === 0) return formatDate(label);
+  return "";
+});
+
+const chartData = {
+  labels: visibleLabels,
+  datasets: [
+    {
+      data: farmerPrices,
+      color: () => "#2563eb", 
+      strokeWidth: 3,
+    },
+    {
+      data: webPrices,
+      color: () => "#16a34a", 
+      strokeWidth: 3,
+    },
+  ],
+};
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
@@ -130,28 +202,28 @@ export default function FarmOverview() {
           <SummaryCard
             icon={<Package size={18} color="#16a34a" />}
             label="Production Quantity"
-            value={`${totalProduction}`}
+            value={latest ? `${latest.productionQuantity}` : "-"}
             unit="kg"
             bg="#f0fdf4"
           />
           <SummaryCard
             icon={<ShoppingCart size={18} color="#2563eb" />}
             label="Farm Gate Price"
-            value={rs(farmerPrice)}
+            value={latest ? rs(latest.farmerPrice) : "-"}
             unit="/ kg"
             bg="#eff6ff"
           />
           <SummaryCard
             icon={<Globe size={18} color="#059669" />}
             label="Web Market Price"
-            value={rs(webPrice)}
+            value={latest ? rs(latest.webPrice) : "-"}
             unit="/ kg"
             bg="#ecfdf5"
           />
           <SummaryCard
             icon={<Wallet size={18} color="#92400e" />}
             label="Production Cost"
-            value={rs(totalCost)}
+            value={latest ? rs(latest.totalCost) : "-"}
             unit="total"
             bg="#fffbeb"
           />
@@ -171,16 +243,26 @@ export default function FarmOverview() {
             Price Trend
           </Text>
 
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <PillButton
-              text="7 Days"
-              active={period === "7days"}
-              onPress={() => setPeriod("7days")}
-            />
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
             <PillButton
               text="30 Days"
               active={period === "30days"}
               onPress={() => setPeriod("30days")}
+            />
+            <PillButton
+              text="6 Months"
+              active={period === "6months"}
+              onPress={() => setPeriod("6months")}
+            />
+            <PillButton
+              text="1 Year"
+              active={period === "1year"}
+              onPress={() => setPeriod("1year")}
+            />
+            <PillButton
+              text="All"
+              active={period === "all"}
+              onPress={() => setPeriod("all")}
             />
           </View>
         </View>
@@ -212,43 +294,61 @@ export default function FarmOverview() {
           </View>
 
           <View style={{ position: "relative" }}>
-            <LineChart
-              data={chartData}
-              width={screenWidth - 32}
-              height={230}
-              segments={4}
-              formatYLabel={(v) => `Rs.${v}`}
-              chartConfig={{
-                backgroundColor: "#ffffff",
-                backgroundGradientFrom: "#ffffff",
-                backgroundGradientTo: "#ffffff",
-                decimalPlaces: 0,
-                color: () => "#9ca3af",
-                labelColor: () => "#6b7280",
-                propsForDots: {
-                  r: "4",
-                  strokeWidth: "2",
-                  stroke: "#ffffff",
-                },
-                propsForBackgroundLines: {
-                  strokeDasharray: "6 6",
-                  stroke: "#e5e7eb",
-                },
-              }}
-              bezier
-              onDataPointClick={({ x, y, index }) =>
-                setTooltip({ x, y, index })
-              }
-            />
+           {sortedRecords.length === 0 ? (
+  <View style={{ paddingVertical: 40 }}>
+    <Text style={{ textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
+      No data available for this period
+    </Text>
+  </View>
+) : (
+              <>
+              <LineChart
+  data={chartData}
+  width={screenWidth - 32}
+  height={230}
+  segments={4}
+  formatYLabel={(v) => `Rs.${v}`}
+  withShadow={false}
+  withInnerLines={true}
+  withOuterLines={false}
+  chartConfig={{
+    backgroundColor: "#ffffff",
+    backgroundGradientFrom: "#ffffff",
+    backgroundGradientTo: "#ffffff",
+    decimalPlaces: 0,
 
-            {tooltip && (
-              <TooltipCard
-                {...tooltip}
-                labels={chartData.labels}
-                farmerData={chartData.datasets[0].data}
-                webData={chartData.datasets[1].data}
-                onClose={() => setTooltip(null)}
-              />
+    // 🔥 IMPORTANT: base color must exist
+    color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})`,
+
+    labelColor: () => "#6b7280",
+
+    propsForDots: {
+      r: "6",
+      strokeWidth: "2",
+      stroke: "#ffffff",
+    },
+
+    propsForBackgroundLines: {
+      strokeDasharray: "6 6",
+      stroke: "#e5e7eb",
+    },
+  }}
+  bezier
+  onDataPointClick={({ x, y, index }) =>
+    setTooltip({ x, y, index })
+  }
+/>
+
+                {tooltip && (
+                  <TooltipCard
+                    {...tooltip}
+                    labels={chartData.labels}
+                    farmerData={chartData.datasets[0].data}
+                    webData={chartData.datasets[1].data}
+                    onClose={() => setTooltip(null)}
+                  />
+                )}
+              </>
             )}
           </View>
         </View>
