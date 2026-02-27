@@ -117,9 +117,27 @@ export default function AddData() {
     try {
       const res = await axios.post("/data/data", payload);
 
+      const savedMsg = res.data?.message || "Production data saved successfully";
+      const disaster = res.data?.naturalDisaster;
+
+      // call prediction endpoint using the same values (model expects kg, lkr, etc)
+      let priceMsg = "";
+      try {
+        const predictRes = await axios.post("/api/predict-price", {
+          production_qty_kg: parseInt(form.productionQuantity, 10) || 0,
+          total_cost_lkr: parseFloat(form.totalCost) || 0,
+          web_price_lkr: parseFloat(form.webPrice) || 0,
+          natural_disaster: disaster || "No disaster",
+        });
+        priceMsg = `\nPredicted leaf price: ${predictRes.data?.predictedPrice}`;
+      } catch (pErr: any) {
+        console.error("prediction error", pErr);
+        priceMsg = "\n(Prediction failed)";
+      }
+
       showMessage(
-        "✅ Success",
-        `${res.data?.message}\n\nDisaster Status: ${res.data?.naturalDisaster}`
+        "Success",
+        `${savedMsg}\n\nDisaster Status: ${disaster || "unknown"}${priceMsg}`
       );
 
       setForm(initialForm);
@@ -130,13 +148,13 @@ export default function AddData() {
         err?.message ||
         "Something went wrong while saving.";
 
-      showMessage("❌ Failed", errMsg);
+      showMessage("Failed", errMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================= UI ================= */
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
