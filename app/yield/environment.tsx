@@ -1,29 +1,48 @@
-import React, { useState, useEffect } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Animated,
-  Dimensions 
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import mqtt, { MqttClient } from "mqtt";
 
 const { width } = Dimensions.get("window");
 
-export default function EnvironmentScreen() {
-  // 🔧 Hard-coded IoT values (prototype)
-  const temperature = 32; // °C
-  const soilMoisture = 48; // %
-  const humidity = 62; // %
-  const rainfall = 3; // mm
-  const lastSync = "Today • 10:42 AM";
+type SensorPayload = {
+  device_id?: string;
+  temp?: number;
+  hum?: number;
+  lux?: number;
+  soil_m?: number;
+  rainfall?: number;
+  N?: number;
+  P?: number;
+  K?: number;
+  npk_available?: boolean;
+  dht_available?: boolean;
+};
 
-  // Animation values
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(30));
+// HiveMQ Cloud
+const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
+const HIVEMQ_PORT = 8884;
+const MQTT_TOPIC = "aloeGreen/device01/data";
+const MQTT_USERNAME = "eesara";
+const MQTT_PASSWORD = "Eesara@123";
+
+export default function EnvironmentScreen() {
+  const [sensorData, setSensorData] = useState<SensorPayload | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastSync, setLastSync] = useState("Waiting for data...");
+  const clientRef = useRef<MqttClient | null>(null);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -38,51 +57,132 @@ export default function EnvironmentScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+  }, [fadeAnim, slideAnim]);
+
+  const connectMqtt = () => {
+    if (clientRef.current) {
+      clientRef.current.end(true);
+      clientRef.current = null;
+    }
+
+    const mqttUrl = `wss://${HIVEMQ_HOST}:${HIVEMQ_PORT}/mqtt`;
+
+    const client = mqtt.connect(mqttUrl, {
+      username: MQTT_USERNAME,
+      password: MQTT_PASSWORD,
+      clientId: `expo_env_${Math.random().toString(16).slice(2, 10)}`,
+      clean: true,
+      reconnectPeriod: 3000,
+      connectTimeout: 30000,
+    });
+
+    clientRef.current = client;
+
+    client.on("connect", () => {
+      setIsConnected(true);
+
+      client.subscribe(MQTT_TOPIC, { qos: 0 }, (err) => {
+        if (err) {
+          console.log("Subscribe error:", err.message);
+        } else {
+          console.log("Subscribed to:", MQTT_TOPIC);
+        }
+      });
+    });
+
+    client.on("reconnect", () => {
+      console.log("Reconnecting to HiveMQ...");
+    });
+
+    client.on("error", (err) => {
+      console.log("MQTT error:", err.message);
+      setIsConnected(false);
+    });
+
+    client.on("close", () => {
+      setIsConnected(false);
+      console.log("MQTT connection closed");
+    });
+
+    client.on("message", (_topic, message) => {
+      try {
+        const parsed: SensorPayload = JSON.parse(message.toString());
+        setSensorData(parsed);
+
+        const now = new Date();
+        setLastSync(
+          `Today • ${now.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`
+        );
+      } catch (e) {
+        console.log("Invalid MQTT payload:", e);
+      }
+    });
+  };
+
+  useEffect(() => {
+    connectMqtt();
+
+    return () => {
+      if (clientRef.current) {
+        clientRef.current.end(true);
+        clientRef.current = null;
+      }
+    };
   }, []);
 
-  // Enhanced status calculations
+  const temperature = sensorData?.temp ?? 0;
+  const soilMoisture = sensorData?.soil_m ?? 0;
+  const humidity = sensorData?.hum ?? 0;
+  const rainfall = sensorData?.rainfall ?? 0;
+
   const getTemperatureStatus = () => {
-    if (temperature > 35) return { level: "Critical", color: "#D32F2F", icon: "alert-circle" };
-    if (temperature > 30) return { level: "Warning", color: "#F57C00", icon: "warning" };
-    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" };
+    if (temperature > 35) return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
+    if (temperature > 30) return { level: "Warning", color: "#F57C00", icon: "warning" as const };
+    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const getMoistureStatus = () => {
-    if (soilMoisture < 30) return { level: "Critical", color: "#D32F2F", icon: "alert-circle" };
-    if (soilMoisture < 40) return { level: "Low", color: "#F57C00", icon: "warning" };
-    if (soilMoisture > 70) return { level: "High", color: "#1976D2", icon: "information-circle" };
-    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" };
+    if (soilMoisture < 30) return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
+    if (soilMoisture < 40) return { level: "Low", color: "#F57C00", icon: "warning" as const };
+    if (soilMoisture > 70) return { level: "High", color: "#1976D2", icon: "information-circle" as const };
+    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const getHumidityStatus = () => {
-    if (humidity > 80) return { level: "High", color: "#1976D2", icon: "information-circle" };
-    if (humidity < 40) return { level: "Low", color: "#F57C00", icon: "warning" };
-    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" };
+    if (humidity > 80) return { level: "High", color: "#1976D2", icon: "information-circle" as const };
+    if (humidity < 40) return { level: "Low", color: "#F57C00", icon: "warning" as const };
+    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const tempStatus = getTemperatureStatus();
   const moistureStatus = getMoistureStatus();
   const humidityStatus = getHumidityStatus();
 
-  // Calculate overall health score
   const calculateHealthScore = () => {
     let score = 100;
     if (temperature > 35) score -= 30;
     else if (temperature > 30) score -= 15;
+
     if (soilMoisture < 30) score -= 30;
     else if (soilMoisture < 40) score -= 15;
+
     if (humidity > 80 || humidity < 40) score -= 10;
+
     return Math.max(0, score);
   };
 
   const healthScore = calculateHealthScore();
-  const healthColor = healthScore >= 80 ? "#2E7D32" : healthScore >= 60 ? "#F57C00" : "#D32F2F";
+  const healthColor =
+    healthScore >= 80 ? "#2E7D32" : healthScore >= 60 ? "#F57C00" : "#D32F2F";
 
   const sensors = [
     {
       id: 1,
       label: "Temperature",
-      value: temperature,
+      value: Number(temperature).toFixed(1),
       unit: "°C",
       icon: "thermometer-outline",
       gradient: ["#FF6B35", "#F7931E"],
@@ -93,61 +193,76 @@ export default function EnvironmentScreen() {
     {
       id: 2,
       label: "Soil Moisture",
-      value: soilMoisture,
+      value: Math.round(soilMoisture).toString(),
       unit: "%",
       icon: "water-outline",
       gradient: ["#4FC3F7", "#29B6F6"],
       status: moistureStatus,
       optimal: "40-70%",
-      progress: soilMoisture / 100,
+      progress: Math.max(0, Math.min(soilMoisture / 100, 1)),
     },
     {
       id: 3,
       label: "Humidity",
-      value: humidity,
+      value: Number(humidity).toFixed(1),
       unit: "%",
       icon: "cloud-outline",
       gradient: ["#78909C", "#607D8B"],
       status: humidityStatus,
       optimal: "40-80%",
-      progress: humidity / 100,
+      progress: Math.max(0, Math.min(humidity / 100, 1)),
     },
     {
       id: 4,
       label: "Rainfall",
-      value: rainfall,
+      value: Number(rainfall).toFixed(2),
       unit: "mm",
       icon: "rainy-outline",
       gradient: ["#66BB6A", "#43A047"],
-      status: { level: "Today", color: "#546E7A", icon: "water" },
-      optimal: "24h total",
+      status: { level: "Live", color: "#546E7A", icon: "water" as const },
+      optimal: "Accumulated",
       progress: Math.min(rainfall / 10, 1),
     },
   ];
 
   return (
-    <ScrollView 
-      style={styles.container} 
+    <ScrollView
+      style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header with Health Score */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
             <Text style={styles.title}>Environment Monitor</Text>
             <Text style={styles.subtitle}>Real-time IoT sensor data</Text>
           </View>
-          <TouchableOpacity style={styles.refreshButton} activeOpacity={0.7}>
+
+          <TouchableOpacity
+            style={styles.refreshButton}
+            activeOpacity={0.7}
+            onPress={connectMqtt}
+          >
             <Ionicons name="refresh" size={20} color="#2E7D32" />
           </TouchableOpacity>
         </View>
 
-        {/* Health Score Card */}
-        <Animated.View 
+        <View style={styles.connectionRow}>
+          <View
+            style={[
+              styles.connectionDot,
+              { backgroundColor: isConnected ? "#4CAF50" : "#D32F2F" },
+            ]}
+          />
+          <Text style={styles.connectionText}>
+            {isConnected ? "Connected to HiveMQ Live Feed" : "Disconnected"}
+          </Text>
+        </View>
+
+        <Animated.View
           style={[
             styles.healthCard,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
           <LinearGradient
@@ -164,16 +279,25 @@ export default function EnvironmentScreen() {
                   <Text style={styles.scoreMax}>/100</Text>
                 </View>
                 <Text style={styles.healthStatus}>
-                  {healthScore >= 80 ? "Excellent Conditions" : 
-                   healthScore >= 60 ? "Monitor Closely" : "Action Required"}
+                  {healthScore >= 80
+                    ? "Excellent Conditions"
+                    : healthScore >= 60
+                    ? "Monitor Closely"
+                    : "Action Required"}
                 </Text>
               </View>
+
               <View style={[styles.healthCircle, { borderColor: healthColor }]}>
-                <Ionicons 
-                  name={healthScore >= 80 ? "leaf" : 
-                        healthScore >= 60 ? "alert-circle" : "warning"} 
-                  size={32} 
-                  color={healthColor} 
+                <Ionicons
+                  name={
+                    healthScore >= 80
+                      ? "leaf"
+                      : healthScore >= 60
+                      ? "alert-circle"
+                      : "warning"
+                  }
+                  size={32}
+                  color={healthColor}
                 />
               </View>
             </View>
@@ -181,7 +305,6 @@ export default function EnvironmentScreen() {
         </Animated.View>
       </View>
 
-      {/* Sensor Cards Grid */}
       <View style={styles.sensorsSection}>
         <Text style={styles.sectionTitle}>Sensor Readings</Text>
         <View style={styles.grid}>
@@ -192,23 +315,25 @@ export default function EnvironmentScreen() {
                 styles.sensorCardWrapper,
                 {
                   opacity: fadeAnim,
-                  transform: [{
-                    translateY: slideAnim.interpolate({
-                      inputRange: [0, 30],
-                      outputRange: [0, 30 + index * 10],
-                    }),
-                  }],
+                  transform: [
+                    {
+                      translateY: slideAnim.interpolate({
+                        inputRange: [0, 30],
+                        outputRange: [0, 30 + index * 10],
+                      }),
+                    },
+                  ],
                 },
               ]}
             >
               <TouchableOpacity style={styles.sensorCard} activeOpacity={0.9}>
                 <LinearGradient
-                  colors={sensor.gradient}
+                  colors={sensor.gradient as [string, string]}
                   style={styles.iconContainer}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name={sensor.icon} size={24} color="#FFFFFF" />
+                  <Ionicons name={sensor.icon as any} size={24} color="#FFFFFF" />
                 </LinearGradient>
 
                 <View style={styles.sensorInfo}>
@@ -220,23 +345,35 @@ export default function EnvironmentScreen() {
                   <Text style={styles.optimalText}>Optimal: {sensor.optimal}</Text>
                 </View>
 
-                {/* Progress Bar */}
                 <View style={styles.progressBar}>
-                  <View 
+                  <View
                     style={[
-                      styles.progressFill, 
-                      { 
+                      styles.progressFill,
+                      {
                         width: `${sensor.progress * 100}%`,
-                        backgroundColor: sensor.status.color 
-                      }
-                    ]} 
+                        backgroundColor: sensor.status.color,
+                      },
+                    ]}
                   />
                 </View>
 
-                {/* Status Badge */}
-                <View style={[styles.statusBadge, { backgroundColor: sensor.status.color + "15" }]}>
-                  <Ionicons name={sensor.status.icon} size={12} color={sensor.status.color} />
-                  <Text style={[styles.statusText, { color: sensor.status.color }]}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: sensor.status.color + "15" },
+                  ]}
+                >
+                  <Ionicons
+                    name={sensor.status.icon as any}
+                    size={12}
+                    color={sensor.status.color}
+                  />
+                  <Text
+                    style={[
+                      styles.statusText,
+                      { color: sensor.status.color },
+                    ]}
+                  >
                     {sensor.status.level}
                   </Text>
                 </View>
@@ -246,7 +383,6 @@ export default function EnvironmentScreen() {
         </View>
       </View>
 
-      {/* Stress Analysis */}
       <View style={styles.analysisSection}>
         <Text style={styles.sectionTitle}>Stress Indicators</Text>
         <View style={styles.analysisCard}>
@@ -258,8 +394,11 @@ export default function EnvironmentScreen() {
               <View>
                 <Text style={styles.analysisLabel}>Heat Stress</Text>
                 <Text style={styles.analysisDescription}>
-                  {temperature > 35 ? "Provide shade & increase watering" : 
-                   temperature > 30 ? "Monitor plant health" : "Temperature within range"}
+                  {temperature > 35
+                    ? "Provide shade & increase watering"
+                    : temperature > 30
+                    ? "Monitor plant health"
+                    : "Temperature within range"}
                 </Text>
               </View>
             </View>
@@ -274,18 +413,31 @@ export default function EnvironmentScreen() {
 
           <View style={styles.analysisItem}>
             <View style={styles.analysisLeft}>
-              <View style={[styles.analysisIcon, { backgroundColor: moistureStatus.color + "15" }]}>
+              <View
+                style={[
+                  styles.analysisIcon,
+                  { backgroundColor: moistureStatus.color + "15" },
+                ]}
+              >
                 <Ionicons name="water-outline" size={20} color={moistureStatus.color} />
               </View>
               <View>
                 <Text style={styles.analysisLabel}>Water Stress</Text>
                 <Text style={styles.analysisDescription}>
-                  {soilMoisture < 30 ? "Immediate irrigation needed" :
-                   soilMoisture < 40 ? "Schedule irrigation soon" : "Moisture levels adequate"}
+                  {soilMoisture < 30
+                    ? "Immediate irrigation needed"
+                    : soilMoisture < 40
+                    ? "Schedule irrigation soon"
+                    : "Moisture levels adequate"}
                 </Text>
               </View>
             </View>
-            <View style={[styles.statusPill, { backgroundColor: moistureStatus.color + "15" }]}>
+            <View
+              style={[
+                styles.statusPill,
+                { backgroundColor: moistureStatus.color + "15" },
+              ]}
+            >
               <Text style={[styles.statusPillText, { color: moistureStatus.color }]}>
                 {moistureStatus.level}
               </Text>
@@ -294,10 +446,9 @@ export default function EnvironmentScreen() {
         </View>
       </View>
 
-      {/* Smart Recommendations */}
       <View style={styles.recommendationsSection}>
         <Text style={styles.sectionTitle}>Smart Recommendations</Text>
-        
+
         {temperature > 30 && (
           <View style={[styles.recommendationCard, styles.warningCard]}>
             <View style={styles.recommendationIcon}>
@@ -341,10 +492,14 @@ export default function EnvironmentScreen() {
         )}
       </View>
 
-      {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.syncIndicator}>
-          <View style={styles.syncDot} />
+          <View
+            style={[
+              styles.syncDot,
+              { backgroundColor: isConnected ? "#4CAF50" : "#D32F2F" },
+            ]}
+          />
           <Text style={styles.footerText}>Last updated: {lastSync}</Text>
         </View>
         <TouchableOpacity>
@@ -398,6 +553,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#F1F8F4",
     justifyContent: "center",
     alignItems: "center",
+  },
+  connectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+    gap: 8,
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  connectionText: {
+    fontSize: 13,
+    color: "#616161",
+    fontWeight: "500",
   },
   healthCard: {
     borderRadius: 16,
