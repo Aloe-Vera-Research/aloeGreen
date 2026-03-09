@@ -7,31 +7,104 @@ import {
   Animated,
   Dimensions,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState, useRef } from "react";
+
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
+
+const soilTextureMap: Record<string, number> = {
+  Loamy: 1,
+  Sandy: 2,
+  Clay: 3,
+};
+
+// Temporary default environment values until IoT/weather integration
+const DEFAULT_ENVIRONMENT = {
+  humidity_pct: 70,
+  irrigation_mm: 4,
+  rainfall_mm: 1.2,
+  soil_moisture_pct: 38,
+  soil_organic_matter_pct: 2.8,
+  soil_ph: 6.5,
+  temp_day_c: 32.5,
+};
 
 export default function YieldDashboard() {
   const router = useRouter();
   const [plantCount, setPlantCount] = useState<number>(0);
   const [plantAgeMonths, setPlantAgeMonths] = useState<number>(0);
+  const [perPlantYield, setPerPlantYield] = useState<number>(0);
+  const [lastUpdated, setLastUpdated] = useState<string>("--");
+  const [loadingPrediction, setLoadingPrediction] = useState<boolean>(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
-  // Hard-coded prototype values
-  const perPlantYield = 220; // grams
+  useFocusEffect(
+    useCallback(() => {
+      loadFarmSetup();
+    }, []),
+  );
   const totalYieldKg = ((perPlantYield * plantCount) / 1000).toFixed(1);
   const modelConfidence = 0.89;
-  const lastUpdated = "Today • 10:45 AM";
+
+  const fetchYieldPrediction = async (farmConfig: any, ageMonths: number) => {
+    try {
+      setLoadingPrediction(true);
+
+      const payload = buildPredictionPayload(farmConfig, ageMonths);
+      console.log("Prediction payload:", payload);
+
+      const response = await fetch("http://192.168.1.35:8000/yield/predict", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("Response status:", response.status);
+
+      const rawText = await response.text();
+      console.log("Raw response text:", rawText);
+
+      const data = rawText ? JSON.parse(rawText) : null;
+      console.log("Parsed response data:", data);
+
+      if (response.ok && data?.success) {
+        setPerPlantYield(Number(data.gel_weight_g ?? 0));
+        setLastUpdated(
+          data.timestamp
+            ? new Date(data.timestamp).toLocaleString()
+            : new Date().toLocaleString(),
+        );
+      } else {
+        console.log("Prediction failed:", data);
+      }
+    } catch (error) {
+      console.log("Prediction error:", error);
+    } finally {
+      setLoadingPrediction(false);
+    }
+  };
+
+  const buildPredictionPayload = (farmConfig: any, plantAgeMonths: number) => {
+    return {
+      ...DEFAULT_ENVIRONMENT,
+      plant_age_months: plantAgeMonths,
+      soil_texture_enc: soilTextureMap[farmConfig.soilType] ?? 1,
+      timestamp: new Date().toISOString(),
+    };
+  };
 
   useEffect(() => {
-    loadFarmSetup();
+    
 
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -55,19 +128,26 @@ export default function YieldDashboard() {
   }, []);
 
   const loadFarmSetup = async () => {
-    const data = await AsyncStorage.getItem("farmSetup");
-    if (!data) return;
+    try {
+      const data = await AsyncStorage.getItem("farmConfig");
+      if (!data) return;
 
-    const parsed = JSON.parse(data);
-    setPlantCount(parsed.plantCount);
+      const parsed = JSON.parse(data);
+      setPlantCount(parsed.plantCount ?? 0);
 
-    const plantingDate = new Date(parsed.plantingDate);
-    const today = new Date();
-    const diffMonths =
-      (today.getFullYear() - plantingDate.getFullYear()) * 12 +
-      (today.getMonth() - plantingDate.getMonth());
+      const plantingDate = new Date(parsed.plantingDate);
+      const today = new Date();
+      const diffMonths =
+        (today.getFullYear() - plantingDate.getFullYear()) * 12 +
+        (today.getMonth() - plantingDate.getMonth());
 
-    setPlantAgeMonths(diffMonths);
+      const safeAgeMonths = Math.max(1, diffMonths);
+      setPlantAgeMonths(safeAgeMonths);
+
+      await fetchYieldPrediction(parsed, safeAgeMonths);
+    } catch (error) {
+      console.log("Error loading farm setup:", error);
+    }
   };
 
   const quickActions = [
@@ -86,19 +166,19 @@ export default function YieldDashboard() {
       bgColor: "#E3F2FD",
     },
     {
-      title: "History",
-      icon: "time",
+      title: "Forecast",
+      icon: "trending-up",
       route: "/yield/history",
       color: "#FF9800",
       bgColor: "#FFF3E0",
     },
-    {
-      title: "Alerts",
-      icon: "notifications",
-      route: "/yield/alert",
-      color: "#F44336",
-      bgColor: "#FFEBEE",
-    },
+    // {
+    //   title: "Alerts",
+    //   icon: "notifications",
+    //   route: "/yield/alert",
+    //   color: "#F44336",
+    //   bgColor: "#FFEBEE",
+    // },
   ];
 
   return (
@@ -128,7 +208,9 @@ export default function YieldDashboard() {
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={styles.title}>Yield Dashboard</Text>
-              <Text style={styles.subtitle}>Real-time estimation & insights</Text>
+              <Text style={styles.subtitle}>
+                Real-time estimation & insights
+              </Text>
             </View>
           </View>
 
@@ -164,9 +246,13 @@ export default function YieldDashboard() {
               </View>
               <Text style={styles.mainLabel}>Per Plant Yield</Text>
             </View>
-            <Text style={styles.mainValue}>{perPlantYield}g</Text>
+            <Text style={styles.mainValue}>{perPlantYield.toFixed(2)}g</Text>
             <View style={styles.mainCardFooter}>
-              <Ionicons name="information-circle" size={16} color="rgba(255,255,255,0.8)" />
+              <Ionicons
+                name="information-circle"
+                size={16}
+                color="rgba(255,255,255,0.8)"
+              />
               <Text style={styles.mainNote}>
                 Based on current environmental conditions
               </Text>
@@ -201,7 +287,11 @@ export default function YieldDashboard() {
 
           <View style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: "#E3F2FD" }]}>
-              <MaterialCommunityIcons name="check-decagram" size={24} color="#2196F3" />
+              <MaterialCommunityIcons
+                name="check-decagram"
+                size={24}
+                color="#2196F3"
+              />
             </View>
             <Text style={styles.statLabel}>Accuracy</Text>
             <Text style={styles.statValue}>
@@ -240,7 +330,9 @@ export default function YieldDashboard() {
             <View
               style={[
                 styles.progressFill,
-                { width: `${Math.min((parseFloat(totalYieldKg) / 100) * 100, 100)}%` },
+                {
+                  width: `${Math.min((parseFloat(totalYieldKg) / 100) * 100, 100)}%`,
+                },
               ]}
             />
           </View>
@@ -256,23 +348,33 @@ export default function YieldDashboard() {
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action, index) => (
               <Animated.View
-                key={index}
-                style={[
-                  {
-                    opacity: fadeAnim,
-                    transform: [
-                      {
-                        scale: fadeAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.8, 1],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
+  key={index}
+  style={[
+    {
+      opacity: fadeAnim,
+      transform: [
+        {
+          scale: fadeAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.8, 1],
+          }),
+        },
+      ],
+    },
+    quickActions.length % 2 !== 0 && index === quickActions.length - 1
+      ? styles.quickActionWrapperFull
+      : null,
+  ]}
+>
                 <TouchableOpacity
-                  style={[styles.quickActionCard, { backgroundColor: action.bgColor }]}
+                  style={[
+                    styles.quickActionCard,
+                    { backgroundColor: action.bgColor },
+                    quickActions.length % 2 !== 0 &&
+                    index === quickActions.length - 1
+                      ? styles.quickActionCardFull
+                      : null,
+                  ]}
                   onPress={() => router.push(action.route as any)}
                   activeOpacity={0.8}
                 >
@@ -282,9 +384,15 @@ export default function YieldDashboard() {
                       { backgroundColor: action.color + "30" },
                     ]}
                   >
-                    <Ionicons name={action.icon as any} size={24} color={action.color} />
+                    <Ionicons
+                      name={action.icon as any}
+                      size={24}
+                      color={action.color}
+                    />
                   </View>
-                  <Text style={[styles.quickActionText, { color: action.color }]}>
+                  <Text
+                    style={[styles.quickActionText, { color: action.color }]}
+                  >
                     {action.title}
                   </Text>
                 </TouchableOpacity>
@@ -322,7 +430,11 @@ export default function YieldDashboard() {
         <View style={styles.insightsCard}>
           <View style={styles.insightsHeader}>
             <View style={styles.insightsIconWrapper}>
-              <MaterialCommunityIcons name="lightbulb-on" size={24} color="#FF9800" />
+              <MaterialCommunityIcons
+                name="lightbulb-on"
+                size={24}
+                color="#FF9800"
+              />
             </View>
             <Text style={styles.insightsTitle}>Insights</Text>
           </View>
@@ -330,19 +442,23 @@ export default function YieldDashboard() {
             <View style={styles.insightItem}>
               <View style={styles.insightDot} />
               <Text style={styles.insightText}>
-                Your plants are {plantAgeMonths} months old - optimal harvest time is approaching
+                Your plants are {plantAgeMonths} months old - optimal harvest
+                time is approaching
               </Text>
             </View>
             <View style={styles.insightItem}>
               <View style={styles.insightDot} />
               <Text style={styles.insightText}>
-                Expected yield is {parseFloat(totalYieldKg) > 50 ? "above" : "within"} average range
+                Expected yield is{" "}
+                {parseFloat(totalYieldKg) > 50 ? "above" : "within"} average
+                range
               </Text>
             </View>
             <View style={styles.insightItem}>
               <View style={styles.insightDot} />
               <Text style={styles.insightText}>
-                Model confidence at {(modelConfidence * 100).toFixed(0)}% - predictions are reliable
+                Model confidence at {(modelConfidence * 100).toFixed(0)}% -
+                predictions are reliable
               </Text>
             </View>
           </View>
@@ -363,6 +479,20 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     paddingBottom: 40,
+  },
+  quickActionCard: {
+    width: (width - 56) / 2,
+    borderRadius: 16,
+    padding: 18,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  quickActionCardFull: {
+    width: "100%",
   },
   header: {
     marginBottom: 24,
@@ -386,6 +516,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  quickActionWrapperFull: {
+  width: "100%",
+},
   headerTextContainer: {
     flex: 1,
   },

@@ -1,20 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
-  Animated 
+  Animated,
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const API_BASE_URL = "http://192.168.1.35:8000";
 
 export default function ScenarioScreen() {
   // 🔧 Base values (from ML model – prototype)
-  const basePerPlantYield = 220; // grams
-  const plantCount = 500;
+  const requestIdRef = React.useRef(0);
+  const [plantCount, setPlantCount] = useState<number>(0);
+  const [basePerPlantYield, setBasePerPlantYield] = useState<number>(0);
+  const [scenarioYield, setScenarioYield] = useState<number>(0);
+  const [yieldChange, setYieldChange] = useState<string>("0.0");
+  const [loadingScenario, setLoadingScenario] = useState<boolean>(false);
 
   // Scenario inputs
   const [irrigation, setIrrigation] = useState(4); // mm
@@ -27,29 +34,31 @@ export default function ScenarioScreen() {
   const [fadeAnim] = useState(new Animated.Value(0));
 
   // 🔧 Enhanced simulation logic
-  const irrigationImpact = irrigation * 2.5; // +2.5g per mm
-  const temperatureImpact = 
-    temperature > 35 ? -15 : 
-    temperature < 25 ? -8 : 
-    temperature >= 28 && temperature <= 32 ? 5 : 0;
-  const fertilizerImpact = (fertilizer / 100) * 15; // max +15g
-  const sunlightImpact = 
-    sunlight >= 6 && sunlight <= 8 ? 8 : 
-    sunlight > 8 ? -5 : -10;
-
-  const perPlantScenarioYield = Math.max(
-    0,
-    basePerPlantYield + irrigationImpact + temperatureImpact + 
-    fertilizerImpact + sunlightImpact
-  );
-
-  const totalScenarioYieldKg = ((perPlantScenarioYield * plantCount) / 1000).toFixed(1);
-  const baseYieldKg = ((basePerPlantYield * plantCount) / 1000).toFixed(1);
-  const yieldChange = ((perPlantScenarioYield - basePerPlantYield) / basePerPlantYield * 100).toFixed(1);
+  const perPlantScenarioYield = scenarioYield || basePerPlantYield;
+  const totalScenarioYieldKg = (
+    (perPlantScenarioYield * plantCount) /
+    1000
+  ).toFixed(2);
+  const baseYieldKg = ((basePerPlantYield * plantCount) / 1000).toFixed(2);
   const isPositiveChange = parseFloat(yieldChange) >= 0;
+
+  const DEFAULT_BASE = {
+    humidity_pct: 70,
+    irrigation_mm: 4,
+    plant_age_months: 2,
+    rainfall_mm: 1.2,
+    soil_moisture_pct: 38,
+    soil_organic_matter_pct: 2.8,
+    soil_ph: 6.5,
+    soil_texture_enc: 1,
+    temp_day_c: 32.5,
+  };
 
   // Animate yield changes
   useEffect(() => {
+    loadFarmSetup();
+    fetchBasePrediction();
+
     Animated.parallel([
       Animated.spring(yieldAnim, {
         toValue: 1,
@@ -62,7 +71,15 @@ export default function ScenarioScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [perPlantScenarioYield]);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchScenarioPrediction();
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [irrigation, temperature]);
 
   // Reset to defaults
   const resetScenario = () => {
@@ -74,20 +91,20 @@ export default function ScenarioScreen() {
 
   // Preset scenarios
   const applyPreset = (preset) => {
-    switch(preset) {
-      case 'optimal':
+    switch (preset) {
+      case "optimal":
         setIrrigation(6);
         setTemperature(30);
         setFertilizer(75);
         setSunlight(7);
         break;
-      case 'drought':
+      case "drought":
         setIrrigation(2);
         setTemperature(38);
         setFertilizer(40);
         setSunlight(10);
         break;
-      case 'rainy':
+      case "rainy":
         setIrrigation(8);
         setTemperature(26);
         setFertilizer(60);
@@ -96,15 +113,108 @@ export default function ScenarioScreen() {
     }
   };
 
-  const getImpactColor = (value) => {
-    if (value > 5) return '#2E7D32';
-    if (value < -5) return '#D32F2F';
-    return '#F57C00';
+  const loadFarmSetup = async () => {
+    try {
+      const data = await AsyncStorage.getItem("farmConfig");
+      if (!data) return;
+
+      const parsed = JSON.parse(data);
+      setPlantCount(parsed.plantCount || 0);
+    } catch (error) {
+      console.log("Error loading farm config:", error);
+    }
   };
 
+  const getImpactColor = (value) => {
+    if (value > 5) return "#2E7D32";
+    if (value < -5) return "#D32F2F";
+    return "#F57C00";
+  };
+
+  const fetchScenarioPrediction = async () => {
+    try {
+      const requestId = ++requestIdRef.current;
+      setLoadingScenario(true);
+
+      const payload = {
+        base: DEFAULT_BASE,
+        scenarios: [
+          {
+            name: "Current Scenario",
+            changes: {
+              irrigation_mm: irrigation,
+              temp_day_c: temperature,
+            },
+          },
+        ],
+      };
+
+      console.log("Scenario payload:", JSON.stringify(payload, null, 2));
+
+      const response = await fetch(`${API_BASE_URL}/yield/scenario`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("Scenario status:", response.status);
+
+      const rawText = await response.text();
+      console.log("Scenario raw response:", rawText);
+
+      const data = rawText ? JSON.parse(rawText) : null;
+      console.log("Scenario parsed response:", data);
+
+      if (requestId !== requestIdRef.current) return;
+
+      if (data?.success && data.results?.length > 0) {
+        const currentScenario =
+          data.results.find((item: any) => item.name === "Current Scenario") ||
+          data.results[data.results.length - 1];
+
+        setScenarioYield(Number(currentScenario.gel_weight_g ?? 0));
+        setYieldChange(String(currentScenario.percent_change ?? 0));
+      }
+    } catch (error) {
+      console.log("Scenario prediction error:", error);
+    } finally {
+      setLoadingScenario(false);
+    }
+  };
+
+  const fetchBasePrediction = async () => {
+    try {
+      const payload = {
+        ...DEFAULT_BASE,
+        timestamp: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/yield/predict`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data?.success) {
+        setBasePerPlantYield(Number(data.gel_weight_g ?? 0));
+      }
+    } catch (error) {
+      console.log("Base prediction error:", error);
+    }
+  };
   return (
-    <ScrollView 
-      style={styles.container} 
+    <ScrollView
+      style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -117,7 +227,7 @@ export default function ScenarioScreen() {
               Predict yield impact of environmental changes
             </Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.resetButton}
             onPress={resetScenario}
             activeOpacity={0.7}
@@ -129,30 +239,30 @@ export default function ScenarioScreen() {
         {/* Preset Scenarios */}
         <View style={styles.presetContainer}>
           <Text style={styles.presetLabel}>Quick Scenarios:</Text>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.presetScroll}
           >
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.presetChip}
-              onPress={() => applyPreset('optimal')}
+              onPress={() => applyPreset("optimal")}
               activeOpacity={0.7}
             >
               <Ionicons name="sunny" size={16} color="#2E7D32" />
               <Text style={styles.presetText}>Optimal</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.presetChip}
-              onPress={() => applyPreset('drought')}
+              onPress={() => applyPreset("drought")}
               activeOpacity={0.7}
             >
               <Ionicons name="flame" size={16} color="#F57C00" />
               <Text style={styles.presetText}>Drought</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.presetChip}
-              onPress={() => applyPreset('rainy')}
+              onPress={() => applyPreset("rainy")}
               activeOpacity={0.7}
             >
               <Ionicons name="rainy" size={16} color="#1976D2" />
@@ -165,17 +275,19 @@ export default function ScenarioScreen() {
       {/* Result Cards */}
       <View style={styles.resultsSection}>
         {/* Main Yield Card */}
-        <Animated.View 
+        <Animated.View
           style={[
             styles.mainResultCard,
-            { 
+            {
               opacity: fadeAnim,
-              transform: [{ scale: yieldAnim }]
-            }
+              transform: [{ scale: yieldAnim }],
+            },
           ]}
         >
           <LinearGradient
-            colors={isPositiveChange ? ['#2E7D32', '#1B5E20'] : ['#F57C00', '#E65100']}
+            colors={
+              isPositiveChange ? ["#2E7D32", "#1B5E20"] : ["#F57C00", "#E65100"]
+            }
             style={styles.resultGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -185,20 +297,25 @@ export default function ScenarioScreen() {
                 <Ionicons name="leaf" size={28} color="#FFFFFF" />
               </View>
               <View style={styles.changeIndicator}>
-                <Ionicons 
-                  name={isPositiveChange ? "trending-up" : "trending-down"} 
-                  size={16} 
-                  color="#FFFFFF" 
+                <Ionicons
+                  name={isPositiveChange ? "trending-up" : "trending-down"}
+                  size={16}
+                  color="#FFFFFF"
                 />
                 <Text style={styles.changeText}>
-                  {isPositiveChange ? '+' : ''}{yieldChange}%
+                  {isPositiveChange ? "+" : ""}
+                  {yieldChange}%
                 </Text>
               </View>
             </View>
 
             <Text style={styles.resultLabel}>Predicted Yield (Per Plant)</Text>
             <View style={styles.resultValueRow}>
-              <Text style={styles.resultValue}>{perPlantScenarioYield}</Text>
+              <Text style={styles.resultValue}>
+                {loadingScenario
+                  ? "..."
+                  : Number(perPlantScenarioYield || 0).toFixed(2)}
+              </Text>
               <Text style={styles.resultUnit}>grams</Text>
             </View>
 
@@ -220,18 +337,24 @@ export default function ScenarioScreen() {
           <Text style={styles.totalNote}>
             Based on {plantCount.toLocaleString()} Aloe plants
           </Text>
-          
+
           {/* Yield Comparison Bar */}
           <View style={styles.comparisonBar}>
             <View style={styles.comparisonBarTrack}>
-              <View 
+              <View
                 style={[
                   styles.comparisonBarFill,
-                  { 
-                    width: `${(parseFloat(totalScenarioYieldKg) / parseFloat(baseYieldKg)) * 50}%`,
-                    backgroundColor: isPositiveChange ? '#2E7D32' : '#F57C00'
-                  }
-                ]} 
+                  {
+                    width: `${
+                      baseYieldKg !== "0.00"
+                        ? (parseFloat(totalScenarioYieldKg) /
+                            parseFloat(baseYieldKg)) *
+                          50
+                        : 50
+                    }%`,
+                    backgroundColor: isPositiveChange ? "#2E7D32" : "#F57C00",
+                  },
+                ]}
               />
             </View>
             <Text style={styles.comparisonBarLabel}>
@@ -249,7 +372,9 @@ export default function ScenarioScreen() {
         <View style={styles.controlCard}>
           <View style={styles.controlHeader}>
             <View style={styles.controlLeft}>
-              <View style={[styles.controlIcon, { backgroundColor: '#E3F2FD' }]}>
+              <View
+                style={[styles.controlIcon, { backgroundColor: "#E3F2FD" }]}
+              >
                 <Ionicons name="water" size={20} color="#1976D2" />
               </View>
               <View>
@@ -279,9 +404,7 @@ export default function ScenarioScreen() {
             <Text style={styles.sliderLabel}>10 mm</Text>
           </View>
           <View style={styles.impactBadge}>
-            <Text style={[styles.impactText, { color: getImpactColor(irrigationImpact) }]}>
-              Impact: {irrigationImpact > 0 ? '+' : ''}{irrigationImpact.toFixed(1)}g
-            </Text>
+            <Text style={styles.impactText}>UI parameter only</Text>
           </View>
         </View>
 
@@ -289,7 +412,9 @@ export default function ScenarioScreen() {
         <View style={styles.controlCard}>
           <View style={styles.controlHeader}>
             <View style={styles.controlLeft}>
-              <View style={[styles.controlIcon, { backgroundColor: '#FFF3E0' }]}>
+              <View
+                style={[styles.controlIcon, { backgroundColor: "#FFF3E0" }]}
+              >
                 <Ionicons name="thermometer" size={20} color="#F57C00" />
               </View>
               <View>
@@ -319,14 +444,12 @@ export default function ScenarioScreen() {
             <Text style={styles.sliderLabel}>45°C</Text>
           </View>
           <View style={styles.impactBadge}>
-            <Text style={[styles.impactText, { color: getImpactColor(temperatureImpact) }]}>
-              Impact: {temperatureImpact > 0 ? '+' : ''}{temperatureImpact.toFixed(1)}g
-            </Text>
+            <Text style={styles.impactText}>UI parameter only</Text>
           </View>
         </View>
 
         {/* Fertilizer Control */}
-        <View style={styles.controlCard}>
+        {/* <View style={styles.controlCard}>
           <View style={styles.controlHeader}>
             <View style={styles.controlLeft}>
               <View style={[styles.controlIcon, { backgroundColor: '#F1F8F4' }]}>
@@ -359,14 +482,14 @@ export default function ScenarioScreen() {
             <Text style={styles.sliderLabel}>100%</Text>
           </View>
           <View style={styles.impactBadge}>
-            <Text style={[styles.impactText, { color: getImpactColor(fertilizerImpact) }]}>
-              Impact: {fertilizerImpact > 0 ? '+' : ''}{fertilizerImpact.toFixed(1)}g
-            </Text>
-          </View>
-        </View>
+  <Text style={styles.impactText}>
+    UI parameter only
+  </Text>
+</View>
+        </View> */}
 
         {/* Sunlight Control */}
-        <View style={styles.controlCard}>
+        {/* <View style={styles.controlCard}>
           <View style={styles.controlHeader}>
             <View style={styles.controlLeft}>
               <View style={[styles.controlIcon, { backgroundColor: '#FFF9C4' }]}>
@@ -398,12 +521,12 @@ export default function ScenarioScreen() {
             <Text style={styles.sliderLabel}>6</Text>
             <Text style={styles.sliderLabel}>12 hrs</Text>
           </View>
-          <View style={styles.impactBadge}>
-            <Text style={[styles.impactText, { color: getImpactColor(sunlightImpact) }]}>
-              Impact: {sunlightImpact > 0 ? '+' : ''}{sunlightImpact.toFixed(1)}g
-            </Text>
-          </View>
-        </View>
+         <View style={styles.impactBadge}>
+  <Text style={styles.impactText}>
+    UI parameter only
+  </Text>
+</View>
+        </View> */}
       </View>
 
       {/* Insights Card */}
@@ -414,16 +537,23 @@ export default function ScenarioScreen() {
         </View>
         {isPositiveChange ? (
           <Text style={styles.insightsText}>
-            Great! Your current parameters are predicted to increase yield by{' '}
-            <Text style={styles.insightsBold}>{yieldChange}%</Text>. 
-            {irrigation > 5 && " Consider maintaining higher irrigation levels."}
-            {temperature >= 28 && temperature <= 32 && " Temperature is in optimal range."}
+            Great! Your current parameters are predicted to increase yield by{" "}
+            <Text style={styles.insightsBold}>{yieldChange}%</Text>.
+            {irrigation > 5 &&
+              " Consider maintaining higher irrigation levels."}
+            {temperature >= 28 &&
+              temperature <= 32 &&
+              " Temperature is in optimal range."}
           </Text>
         ) : (
           <Text style={styles.insightsText}>
-            Your current parameters may decrease yield by{' '}
-            <Text style={styles.insightsBold}>{Math.abs(parseFloat(yieldChange))}%</Text>. 
-            {temperature > 35 && " Try reducing heat stress with shade or cooling."}
+            Your current parameters may decrease yield by{" "}
+            <Text style={styles.insightsBold}>
+              {Math.abs(parseFloat(yieldChange))}%
+            </Text>
+            .
+            {temperature > 35 &&
+              " Try reducing heat stress with shade or cooling."}
             {irrigation < 3 && " Increase irrigation to improve yield."}
           </Text>
         )}
@@ -435,8 +565,8 @@ export default function ScenarioScreen() {
           <Ionicons name="information-circle" size={20} color="#1976D2" />
         </View>
         <Text style={styles.infoText}>
-          Predictions are based on simplified simulation models. Production version 
-          will use trained ML ensemble for more accurate forecasting.
+          Predictions are based on simplified simulation models. Production
+          version will use trained ML ensemble for more accurate forecasting.
         </Text>
       </View>
     </ScrollView>
