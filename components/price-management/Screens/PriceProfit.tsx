@@ -4,28 +4,111 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   ScrollView,
   Text,
   View,
+  ActivityIndicator,
+  TouchableOpacity,
+  Pressable,
+  FlatList,
 } from "react-native";
 import { BarChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
+import useAxios from "@/hooks/useAxios";
 
 const screenWidth = Dimensions.get("window").width;
 
+type Record = {
+  id: string;
+  date: string;
+  productionQuantity: number;
+  totalCost: number;
+  farmerPrice: number;
+  webPrice: number;
+  naturalDisaster: string;
+};
+
 export default function PriceProfit() {
-  /* ---------------- DATA ---------------- */
-  const totalProduction = 1250;
-  const farmerPrice = 210;
-  const webPrice = 245;
-  const totalCost = 180000;
+  const axios = useAxios();
+  const [records, setRecords] = useState<Record[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showSelector, setShowSelector] = useState(false);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [axios]);
+
+  const fetchRecords = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("/data/data");
+      const list: Record[] = res.data?.records || [];
+      setRecords(list);
+      if (list.length > 0) {
+        setSelectedRecord(list[0]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch records", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={{ marginTop: 10, color: "#666" }}>Loading records...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!selectedRecord) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
+        <View
+          style={{
+            backgroundColor: "#16a34a",
+            paddingHorizontal: 20,
+            paddingTop: 28,
+            paddingBottom: 36,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Leaf size={28} color="#ffffff" />
+            <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
+              Price & Profit Analysis
+            </Text>
+          </View>
+          <Text
+            style={{
+              marginTop: 6,
+              marginLeft: 38,
+              fontSize: 13,
+              color: "#dcfce7",
+            }}
+          >
+            No records found
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const farmData = selectedRecord;
+  const totalProduction = farmData.productionQuantity;
+  const farmerPrice = farmData.farmerPrice;
+  const webPrice = farmData.webPrice;
+  const totalCost = farmData.totalCost;
 
   const farmerRevenue = farmerPrice * totalProduction;
   const webRevenue = webPrice * totalProduction;
-
   const farmerProfit = farmerRevenue - totalCost;
   const webProfit = webRevenue - totalCost;
 
@@ -59,24 +142,84 @@ export default function PriceProfit() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Leaf size={28} color="#ffffff" />
-            <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
-              Price & Profit Analysis
-            </Text>
+            <View>
+              <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
+                Price & Profit Analysis
+              </Text>
+              <Text style={{ color: "#dcfce7", marginTop: 6, fontSize: 13 }}>
+                Latest: {farmData.date} ({farmData.productionQuantity} kg)
+              </Text>
+            </View>
           </View>
-          <Text
-            style={{
-              marginTop: 6,
-              marginLeft: 38,
-              fontSize: 13,
-              color: "#dcfce7",
-            }}
-          >
-            Compare earnings and analyze profitability
-          </Text>
         </LinearGradient>
 
+        {/* ================= RECORD SELECTOR ================= */}
+        <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+          <TouchableOpacity
+            onPress={() => setShowSelector(!showSelector)}
+            style={{
+              backgroundColor: "#fff",
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: "#e5e7eb",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>
+              📅 {selectedRecord.date || "No date"}
+            </Text>
+            <Text style={{ color: "#999" }}>{showSelector ? "▼" : "▶"}</Text>
+          </TouchableOpacity>
+
+          {showSelector && records.length > 1 && (
+            <View
+              style={{
+                maxHeight: 200,
+                marginTop: 6,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#e5e7eb",
+                backgroundColor: "#fff",
+                overflow: "hidden",
+              }}
+            >
+              <FlatList
+                data={records}
+                keyExtractor={(item) => item.id}
+                scrollEnabled
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => {
+                      setSelectedRecord(item);
+                      setShowSelector(false);
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#f0f0f0",
+                      backgroundColor: item.id === selectedRecord.id ? "#f0fdf4" : "#fff",
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, color: "#111827", fontWeight: "600" }}>
+                      {item.date} - {item.productionQuantity} kg
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
+                      {item.naturalDisaster}
+                    </Text>
+                  </Pressable>
+                )}
+              />
+            </View>
+          )}
+        </View>
+
         {/* ================= PRICE COMPARISON ================= */}
-        <View style={{ paddingHorizontal: 16, marginTop: -20 }}>
+        <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
           <View
             style={{
               backgroundColor: "#ffffff",

@@ -7,37 +7,113 @@ import {
   ShoppingCart,
   Sprout,
   Wallet,
+  TrendingUp,
 } from "lucide-react-native";
-import React from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ScrollView,
   Text,
   View,
+  ActivityIndicator,
+  TouchableOpacity,
+  Pressable,
+  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import useAxios from "@/hooks/useAxios";
 
-/* ================= COMPONENT ================= */
+type Record = {
+  id: string;
+  date: string;
+  productionQuantity: number;
+  totalCost: number;
+  farmerPrice: number;
+  webPrice: number;
+  plantDate?: string;
+  harvestDate?: string;
+  naturalDisaster: string;
+  predictedPrice?: number;
+  createdAt?: string;
+};
 
 export default function DataRecords() {
-  /* -------- SAMPLE DATA -------- */
-  const farmData = {
-    productionQuantity: 1250,
-    totalCost: 180000,
-    farmerPrice: 210,
-    webPrice: 245,
-    plantDate: "2024-05-12",
-    pluckingDate: "2024-10-20",
-    naturalDisaster: "Drought",
-  };
+  const axios = useAxios();
+  const [records, setRecords] = useState<Record[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showSelector, setShowSelector] = useState(false);
 
-  const farmRevenue =
-    farmData.productionQuantity * farmData.farmerPrice;
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("/data/data");
+      const recordList: Record[] = res.data?.records || [];
+      setRecords(recordList);
+      if (recordList.length > 0) {
+        setSelectedRecord(recordList[0]); // Latest record
+      }
+    } catch (err) {
+      console.error("Failed to fetch records", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [axios]);
 
-  const webRevenue =
-    farmData.productionQuantity * farmData.webPrice;
+  // Fetch on mount
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
 
+  // Refetch whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecords();
+    }, [fetchRecords])
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={{ marginTop: 10, color: "#666" }}>Loading records...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!selectedRecord) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
+        <View
+          style={{
+            backgroundColor: "#16a34a",
+            paddingHorizontal: 20,
+            paddingTop: 28,
+            paddingBottom: 36,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <Leaf size={28} color="#ffffff" />
+            <View>
+              <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
+                Production Records
+              </Text>
+              <Text style={{ fontSize: 13, color: "#dcfce7", marginTop: 2 }}>
+                No records found
+              </Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const farmData = selectedRecord;
+  const farmRevenue = farmData.productionQuantity * farmData.farmerPrice;
+  const webRevenue = farmData.productionQuantity * farmData.webPrice;
   const netProfit = farmRevenue - farmData.totalCost;
-
   const rs = (v: number) => `Rs. ${v.toLocaleString()}`;
 
   return (
@@ -46,7 +122,6 @@ export default function DataRecords() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 30 }}
       >
-    
         {/* ================= HEADER ================= */}
         <View
           style={{
@@ -61,30 +136,84 @@ export default function DataRecords() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Leaf size={28} color="#ffffff" />
             <View>
-              <Text
-                style={{
-                  fontSize: 22,
-                  fontWeight: "700",
-                  color: "#ffffff",
-                }}
-              >
-                Production Record
+              <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
+                Production Records
               </Text>
-              <Text
-                style={{
-                  fontSize: 13,
-                  color: "#dcfce7",
-                  marginTop: 2,
-                }}
-              >
-                Detailed farm & market overview
+              <Text style={{ fontSize: 13, color: "#dcfce7", marginTop: 2 }}>
+                Showing latest {records.length > 0 ? `(${records.length} total)` : ""}
               </Text>
             </View>
           </View>
         </View>
 
+        {/* ================= RECORD SELECTOR ================= */}
+        <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+          <TouchableOpacity
+            onPress={() => setShowSelector(!showSelector)}
+            style={{
+              backgroundColor: "#fff",
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: "#e5e7eb",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>
+              📅 {selectedRecord.date || "No date"}
+            </Text>
+            <Text style={{ color: "#999" }}>{showSelector ? "▼" : "▶"}</Text>
+          </TouchableOpacity>
+
+          {showSelector && records.length > 1 && (
+            <View
+              style={{
+                maxHeight: 200,
+                marginTop: 6,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#e5e7eb",
+                backgroundColor: "#fff",
+                overflow: "hidden",
+              }}
+            >
+              <FlatList
+                data={records}
+                keyExtractor={(item) => item.id}
+                scrollEnabled
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => {
+                      setSelectedRecord(item);
+                      setShowSelector(false);
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#f0f0f0",
+                      backgroundColor: item.id === selectedRecord.id ? "#f0fdf4" : "#fff",
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, color: "#111827", fontWeight: "600" }}>
+                      {item.date} - {item.productionQuantity} kg
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
+                      {item.naturalDisaster}
+                      {item.predictedPrice && ` • Pred: Rs. ${item.predictedPrice}`}
+                    </Text>
+                  </Pressable>
+                )}
+              />
+            </View>
+          )}
+        </View>
+
         {/* ================= CONTENT ================= */}
-        <View style={{ paddingHorizontal: 16, marginTop: -20 }}>
+        <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
           {/* PRODUCTION */}
           <Section title="Production Details">
             <Record
@@ -121,19 +250,23 @@ export default function DataRecords() {
 
           {/* TIMELINE */}
           <Section title="Crop Timeline">
-            <Record
-              icon={<Sprout size={18} color="#6d28d9" />}
-              bg="#f5f3ff"
-              label="Plant Date"
-              value={farmData.plantDate}
-            />
+            {farmData.plantDate && (
+              <Record
+                icon={<Sprout size={18} color="#6d28d9" />}
+                bg="#f5f3ff"
+                label="Plant Date"
+                value={farmData.plantDate}
+              />
+            )}
 
-            <Record
-              icon={<Calendar size={18} color="#b45309" />}
-              bg="#fef3c7"
-              label="Harvest Date"
-              value={farmData.pluckingDate}
-            />
+            {farmData.harvestDate && (
+              <Record
+                icon={<Calendar size={18} color="#b45309" />}
+                bg="#fef3c7"
+                label="Harvest Date"
+                value={farmData.harvestDate}
+              />
+            )}
           </Section>
 
           {/* ENVIRONMENT */}
@@ -145,6 +278,18 @@ export default function DataRecords() {
               value={farmData.naturalDisaster}
             />
           </Section>
+
+          {/* PREDICTED PRICE */}
+          {farmData.predictedPrice && (
+            <Section title="AI Model Prediction">
+              <Record
+                icon={<TrendingUp size={18} color="#059669" />}
+                bg="#d1fae5"
+                label="Predicted Leaf Price"
+                value={`Rs. ${farmData.predictedPrice.toLocaleString()}`}
+              />
+            </Section>
+          )}
 
           {/* ================= FINANCIAL SUMMARY ================= */}
           <View

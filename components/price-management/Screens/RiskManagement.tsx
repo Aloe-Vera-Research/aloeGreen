@@ -6,104 +6,126 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react-native";
-import React from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ScrollView,
   Text,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import useAxios from "@/hooks/useAxios";
 
-/* ================= TYPES ================= */
-type Disaster = "none" | "drought" | "flood" | "severe";
-
-type RiskInfo = {
-  label: string;
-  color: string;
-  bg: string;
-  Icon: React.ElementType;
-  title: string;
-  description: string;
-  recommendations: string[];
+type RiskData = {
+  latest: {
+    date: string;
+    productionQuantity: number;
+    totalCost: number;
+    farmerPrice: number;
+    webPrice: number;
+    naturalDisaster: string;
+    priceDifference: number;
+  };
+  risk: {
+    level: string;
+    color: string;
+    bg: string;
+    icon: string;
+    title: string;
+    description: string;
+    yield_impact: string;
+    price_impact: string;
+    recommendations: string[];
+  };
 };
 
-/* ================= COMPONENT ================= */
+const IconMap: Record<string, React.ElementType> = {
+  AlertCircle: AlertCircle,
+  AlertTriangle: AlertTriangle,
+  CheckCircle: CheckCircle,
+  TrendingDown: TrendingDown,
+  TrendingUp: TrendingUp,
+};
+
 export default function RiskManagement() {
-  // 🔁 Later this can come from sensors / ML model
-  const [naturalDisaster] = React.useState<Disaster>("drought");
+  const axios = useAxios();
+  const [riskData, setRiskData] = useState<RiskData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const getRiskInfo = (d: Disaster): RiskInfo => {
-    switch (d) {
-      case "none":
-        return {
-          label: "Low Risk",
-          color: "#15803d",
-          bg: "#dcfce7",
-          Icon: CheckCircle,
-          title: "Normal Conditions",
-          description: "Environmental conditions are stable for aloe cultivation.",
-          recommendations: [
-            "Continue standard irrigation practices",
-            "Monitor soil moisture weekly",
-            "Maintain nutrient balance",
-          ],
-        };
-
-      case "drought":
-        return {
-          label: "Medium Risk",
-          color: "#c2410c",
-          bg: "#fed7aa",
-          Icon: AlertTriangle,
-          title: "Drought Detected",
-          description:
-            "Low rainfall and high temperatures may reduce crop yield.",
-          recommendations: [
-            "Implement drip irrigation to conserve water",
-            "Apply mulch to retain soil moisture",
-            "Monitor plants daily for stress signs",
-            "Harvest early if plant health declines",
-          ],
-        };
-
-      case "flood":
-        return {
-          label: "High Risk",
-          color: "#1d4ed8",
-          bg: "#dbeafe",
-          Icon: AlertCircle,
-          title: "Flood Warning",
-          description:
-            "Excess water may damage roots and increase disease risk.",
-          recommendations: [
-            "Improve field drainage immediately",
-            "Avoid additional irrigation",
-            "Monitor plants for fungal diseases",
-            "Delay harvesting until water recedes",
-          ],
-        };
-
-      default:
-        return {
-          label: "Critical Risk",
-          color: "#991b1b",
-          bg: "#fee2e2",
-          Icon: AlertCircle,
-          title: "Severe Weather Conditions",
-          description:
-            "Extreme environmental conditions may cause major losses.",
-          recommendations: [
-            "Harvest mature plants immediately",
-            "Protect soil using covers or ridges",
-            "Suspend new planting activities",
-            "Follow official agricultural advisories",
-          ],
-        };
+  const fetchRiskAnalysis = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get("/api/risk-analysis");
+      if (res.data?.error) {
+        setError(res.data.error);
+        setRiskData(null);
+      } else {
+        setRiskData(res.data);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch risk analysis", err);
+      setError("Failed to load risk analysis. Please try again.");
+      setRiskData(null);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [axios]);
 
-  const risk = getRiskInfo(naturalDisaster);
-  const RiskIcon = risk.Icon;
+  // Fetch on mount
+  useEffect(() => {
+    fetchRiskAnalysis();
+  }, [fetchRiskAnalysis]);
+
+  // Refetch whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchRiskAnalysis();
+    }, [fetchRiskAnalysis])
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={{ marginTop: 10, color: "#666" }}>Loading risk analysis...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !riskData) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
+        <View
+          style={{
+            backgroundColor: "#16a34a",
+            paddingHorizontal: 20,
+            paddingTop: 28,
+            paddingBottom: 36,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Leaf size={28} color="#ffffff" />
+            <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "700" }}>
+              Risk Management
+            </Text>
+          </View>
+        </View>
+        <View style={{ padding: 20, justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ color: "#dc2626", fontWeight: "600" }}>{error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const risk = riskData.risk;
+  const latest = riskData.latest;
+  const RiskIcon = IconMap[risk.icon] || AlertCircle;
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
@@ -124,20 +146,15 @@ export default function RiskManagement() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Leaf size={28} color="#ffffff" />
-            <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "700" }}>
-              Risk Management
-            </Text>
+            <View>
+              <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "700" }}>
+                Risk Management
+              </Text>
+              <Text style={{ color: "#dcfce7", marginTop: 6, fontSize: 13 }}>
+                Latest: {latest.date} ({latest.productionQuantity} kg)
+              </Text>
+            </View>
           </View>
-          <Text
-            style={{
-              color: "#dcfce7",
-              marginTop: 6,
-              marginLeft: 38,
-              fontSize: 13,
-            }}
-          >
-            Environmental risk & mitigation overview
-          </Text>
         </View>
 
         {/* ================= CURRENT RISK ================= */}
@@ -185,7 +202,7 @@ export default function RiskManagement() {
                   color: risk.color,
                 }}
               >
-                {risk.label}
+                {risk.level}
               </Text>
             </View>
           </View>
@@ -233,22 +250,30 @@ export default function RiskManagement() {
             icon={<TrendingDown size={20} color="#c2410c" />}
             bg="#fed7aa"
             title="Yield Impact"
-            desc={
-              naturalDisaster === "none"
-                ? "No yield reduction expected."
-                : "Yield may decrease by 15–30%."
-            }
+            desc={risk.yield_impact}
           />
 
           <ImpactCard
             icon={<TrendingUp size={20} color="#15803d" />}
             bg="#dcfce7"
             title="Market Price Impact"
-            desc={
-              naturalDisaster === "none"
-                ? "Prices remain stable."
-                : "Prices may increase due to reduced supply."
-            }
+            desc={risk.price_impact}
+          />
+        </View>
+
+        {/* ================= FINANCIAL DATA ================= */}
+        <View style={{ marginHorizontal: 16, marginTop: 24 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 12 }}>
+            Current Data
+          </Text>
+
+          <DataRow label="Production Cost" value={`Rs. ${latest.totalCost.toLocaleString()}`} />
+          <DataRow label="Farm Gate Price" value={`Rs. ${latest.farmerPrice}/kg`} />
+          <DataRow label="Web Market Price" value={`Rs. ${latest.webPrice}/kg`} />
+          <DataRow
+            label="Price Difference"
+            value={`Rs. ${latest.priceDifference}/kg`}
+            color={latest.priceDifference >= 0 ? "#15803d" : "#dc2626"}
           />
         </View>
 
@@ -345,6 +370,36 @@ function ImpactCard({
           {desc}
         </Text>
       </View>
+    </View>
+  );
+}
+
+function DataRow({
+  label,
+  value,
+  color = "#111827",
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: "#f0f0f0",
+      }}
+    >
+      <Text style={{ fontSize: 13, color: "#6b7280" }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: "600", color }}>{value}</Text>
     </View>
   );
 }

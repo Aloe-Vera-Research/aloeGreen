@@ -1,25 +1,19 @@
-import {
-  Calendar,
-  CloudRain,
-  Droplet,
-  Leaf,
-  Sun,
-} from "lucide-react-native";
+import { Leaf } from "lucide-react-native";
 import React, { useState } from "react";
+import useAxios from "@/hooks/useAxios";
 import {
-  Alert,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
+  Modal,
+  KeyboardAvoidingView,
+  Alert,
 } from "react-native";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-/* ================= TYPES ================= */
-
-type Disaster = "none" | "flood" | "drought" | "";
+import * as Location from "expo-location";
 
 type FormState = {
   productionQuantity: string;
@@ -28,15 +22,12 @@ type FormState = {
   webPrice: string;
   plantDate: string;
   harvestDate: string;
-  naturalDisaster: Disaster;
 };
 
-type Errors = Partial<Record<keyof FormState, string>>;
-type ActiveDate = "plantDate" | "harvestDate" | null;
-
-/* ================= MAIN ================= */
-
 export default function AddData() {
+
+  const axios = useAxios();
+
   const initialForm: FormState = {
     productionQuantity: "",
     totalCost: "",
@@ -44,26 +35,80 @@ export default function AddData() {
     webPrice: "",
     plantDate: "",
     harvestDate: "",
-    naturalDisaster: "",
   };
 
   const [form, setForm] = useState<FormState>(initialForm);
-  const [errors, setErrors] = useState<Errors>({});
-  const [activeDate, setActiveDate] = useState<ActiveDate>(null);
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [result, setResult] = useState<any>(null);
 
-  /* ================= HELPERS ================= */
+  /* ---------- GET LOCATION ---------- */
 
-  const update = (key: keyof FormState, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: undefined }));
+  const getLocation = async () => {
+    try {
+
+      const enabled = await Location.hasServicesEnabledAsync();
+
+      if (!enabled) {
+        Alert.alert("Location Disabled", "Please enable location services.");
+        return null;
+      }
+
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Location permission is required.");
+        return null;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+
+      const lat = location.coords.latitude;
+      const lon = location.coords.longitude;
+
+      const geo = await Location.reverseGeocodeAsync({
+        latitude: lat,
+        longitude: lon,
+      });
+
+      let locationName = "Unknown";
+
+      if (geo.length > 0) {
+
+        const place = geo[0];
+
+        const name =
+          place.city ||
+          place.subregion ||
+          place.region ||
+          "Unknown";
+
+        locationName = `${name}, ${place.country}`;
+      }
+
+      return {
+        lat,
+        lon,
+        locationName
+      };
+
+    } catch (err) {
+
+      console.log(err);
+      Alert.alert("Error", "Failed to get location.");
+      return null;
+
+    }
   };
 
-  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+  /* ---------- CLEAR DATA ---------- */
 
-  const resetForm = () => {
+  const clearData = () => {
+
     Alert.alert(
-      "Clear all data?",
-      "This will remove all entered values.",
+      "Clear Data",
+      "Are you sure you want to clear all fields?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -71,68 +116,103 @@ export default function AddData() {
           style: "destructive",
           onPress: () => {
             setForm(initialForm);
-            setErrors({});
-            setActiveDate(null);
-          },
-        },
+            setResult(null);
+          }
+        }
       ]
     );
+
   };
 
-  const validate = (): boolean => {
-    const e: Errors = {};
+  /* ---------- SAVE DATA ---------- */
 
-    if (!form.productionQuantity)
-      e.productionQuantity = "Please enter production quantity";
-
-    if (!form.totalCost)
-      e.totalCost = "Please enter total production cost";
-
-    if (!form.farmerPrice)
-      e.farmerPrice = "Please enter farm gate price";
-
-    if (!form.webPrice)
-      e.webPrice = "Please enter web market price";
-
-    if (!form.plantDate)
-      e.plantDate = "Please select plant date";
-
-    if (!form.harvestDate)
-      e.harvestDate = "Please select harvest date";
+  const onSave = async () => {
 
     if (
-      form.plantDate &&
-      form.harvestDate &&
-      form.harvestDate < form.plantDate
+      !form.productionQuantity ||
+      !form.totalCost ||
+      !form.farmerPrice ||
+      !form.webPrice
     ) {
-      e.harvestDate = "Harvest date must be after plant date";
-    }
-
-    if (!form.naturalDisaster)
-      e.naturalDisaster = "Please select environmental condition";
-
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const onSave = () => {
-    if (!validate()) {
-      Alert.alert(
-        "Incomplete Information",
-        "Please correct the highlighted fields."
-      );
+      Alert.alert("Missing Data", "Please fill all required fields.");
       return;
     }
 
-    Alert.alert("Success", "Production data saved successfully 🌱");
-    console.log(form);
+    setLoading(true);
+
+    const locationData: any = await getLocation();
+
+    if (!locationData) {
+      setLoading(false);
+      return;
+    }
+
+    const lat = locationData.lat;
+    const lon = locationData.lon;
+    const locationName = locationData.locationName;
+
+    const payload: any = {
+
+      date: new Date().toISOString().split("T")[0],
+
+      productionQuantity: Number(form.productionQuantity),
+      totalCost: Number(form.totalCost),
+      farmerPrice: Number(form.farmerPrice),
+      webPrice: Number(form.webPrice),
+
+      latitude: lat,
+      longitude: lon
+    };
+
+    if (form.plantDate) payload.plantDate = form.plantDate;
+    if (form.harvestDate) payload.harvestDate = form.harvestDate;
+
+    try {
+
+      const predictRes = await axios.post("/api/predict-price", {
+        production_qty_kg: payload.productionQuantity,
+        total_cost_lkr: payload.totalCost,
+        web_price_lkr: payload.webPrice,
+        natural_disaster: "No disaster",
+      });
+
+      const predictedPrice = predictRes.data?.predictedPrice || 0;
+
+      const res = await axios.post("/data/data", {
+        ...payload,
+        predictedPrice,
+      });
+
+      setResult({
+        predictedPrice,
+        disaster: res.data?.naturalDisaster,
+        advice: res.data?.advice,
+        location: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+        locationName,
+        plantDate: form.plantDate,
+        harvestDate: form.harvestDate,
+      });
+
+      setModalVisible(true);
+      setForm(initialForm);
+
+    } catch (err: any) {
+
+      console.log(err?.response?.data);
+      Alert.alert("Error", "Failed to save data.");
+
+    } finally {
+
+      setLoading(false);
+
+    }
   };
 
-  /* ================= UI ================= */
+  /* ---------- UI ---------- */
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
-      {/* HEADER */}
+
       <View
         style={{
           backgroundColor: "#16a34a",
@@ -141,221 +221,203 @@ export default function AddData() {
           borderBottomRightRadius: 28,
         }}
       >
+
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Leaf size={26} color="#fff" />
-          <View>
-            <Text style={{ fontSize: 22, fontWeight: "700", color: "#fff" }}>
-              Add Production Data
-            </Text>
-            <Text style={{ fontSize: 13, color: "#dcfce7" }}>
-              Enter accurate farm production details
-            </Text>
-          </View>
+          <Text style={{ fontSize: 22, fontWeight: "700", color: "#fff" }}>
+            Add Production Data
+          </Text>
         </View>
+
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        <Input
-          label="Production Quantity (kg)"
-          value={form.productionQuantity}
-          placeholder="e.g. 1250"
-          error={errors.productionQuantity}
-          onChange={(v: string) => update("productionQuantity", v)}
-        />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
 
-        <Input
-          label="Total Production Cost (LKR)"
-          value={form.totalCost}
-          placeholder="e.g. 180000"
-          error={errors.totalCost}
-          onChange={(v: string) => update("totalCost", v)}
-        />
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
 
-        <Input
-          label="Farm Gate Price (LKR / kg)"
-          value={form.farmerPrice}
-          placeholder="e.g. 210"
-          error={errors.farmerPrice}
-          onChange={(v: string) => update("farmerPrice", v)}
-        />
-
-        <Input
-          label="Web Market Price (LKR / kg)"
-          value={form.webPrice}
-          placeholder="e.g. 245"
-          error={errors.webPrice}
-          onChange={(v: string) => update("webPrice", v)}
-        />
-
-        <DateInput
-          label="Plant Date"
-          value={form.plantDate}
-          error={errors.plantDate}
-          onPress={() => setActiveDate("plantDate")}
-        />
-
-        <DateInput
-          label="Harvest Date"
-          value={form.harvestDate}
-          error={errors.harvestDate}
-          onPress={() => setActiveDate("harvestDate")}
-        />
-
-        <Text style={{ fontWeight: "600", marginTop: 16 }}>
-          Environmental Condition
-        </Text>
-
-        <View style={{ flexDirection: "row", gap: 12, marginTop: 10 }}>
-          <Env
-            label="Normal"
-            icon={<Sun color="#facc15" />}
-            active={form.naturalDisaster === "none"}
-            onPress={() => update("naturalDisaster", "none")}
+          <Input
+            label="Production Quantity (kg)"
+            placeholder="Example: 1500"
+            value={form.productionQuantity}
+            onChange={(v: string) =>
+              setForm({ ...form, productionQuantity: v })
+            }
           />
-          <Env
-            label="Flood"
-            icon={<Droplet color="#0ea5e9" />}
-            active={form.naturalDisaster === "flood"}
-            onPress={() => update("naturalDisaster", "flood")}
+
+          <Input
+            label="Total Cost (LKR)"
+            placeholder="Example: 100000"
+            value={form.totalCost}
+            onChange={(v: string) =>
+              setForm({ ...form, totalCost: v })
+            }
           />
-          <Env
-            label="Drought"
-            icon={<CloudRain color="#2563eb" />}
-            active={form.naturalDisaster === "drought"}
-            onPress={() => update("naturalDisaster", "drought")}
+
+          <Input
+            label="Farm Gate Price (LKR)"
+            placeholder="Example: 210"
+            value={form.farmerPrice}
+            onChange={(v: string) =>
+              setForm({ ...form, farmerPrice: v })
+            }
           />
+
+          <Input
+            label="Web Market Price (LKR)"
+            placeholder="Example: 230"
+            value={form.webPrice}
+            onChange={(v: string) =>
+              setForm({ ...form, webPrice: v })
+            }
+          />
+
+          <Input
+            label="Plant Date"
+            placeholder="YYYY-MM-DD"
+            value={form.plantDate}
+            onChange={(v: string) =>
+              setForm({ ...form, plantDate: v })
+            }
+          />
+
+          <Input
+            label="Harvest Date"
+            placeholder="YYYY-MM-DD"
+            value={form.harvestDate}
+            onChange={(v: string) =>
+              setForm({ ...form, harvestDate: v })
+            }
+          />
+
+          {/* SAVE BUTTON */}
+
+          <Button
+            title={loading ? "Saving..." : "Save Data"}
+            onPress={onSave}
+            disabled={loading}
+          />
+
+          <View style={{ height: 10 }} />
+
+          {/* CLEAR BUTTON */}
+
+          <TouchableOpacity
+            onPress={clearData}
+            style={{
+              backgroundColor: "#ef4444",
+              padding: 14,
+              borderRadius: 10,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700" }}>
+              Clear Data
+            </Text>
+          </TouchableOpacity>
+
+        </ScrollView>
+
+      </KeyboardAvoidingView>
+
+      {/* RESULT MODAL */}
+
+      <Modal visible={modalVisible} transparent animationType="fade">
+
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+
+          <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 20 }}>
+
+            <Text style={{ fontSize: 20, fontWeight: "700" }}>
+              🌱 Production Data Saved
+            </Text>
+
+            {result && (
+              <View style={{ marginTop: 12 }}>
+                <Text>Predicted Price - Rs. {result.predictedPrice.toFixed(2)}</Text>
+                <Text>Disaster Status - {result.disaster}</Text>
+                <Text>Advice - {result.advice}</Text>
+                <Text>Location Used - {result.location}</Text>
+                <Text>Location Name - {result.locationName}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              style={{
+                backgroundColor: "#16a34a",
+                padding: 12,
+                borderRadius: 10,
+                marginTop: 20,
+              }}
+            >
+              <Text style={{ color: "#fff", textAlign: "center" }}>
+                Close
+              </Text>
+            </TouchableOpacity>
+
+          </View>
+
         </View>
 
-        {errors.naturalDisaster && (
-          <Text style={{ color: "#dc2626", marginTop: 6 }}>
-            {errors.naturalDisaster}
-          </Text>
-        )}
+      </Modal>
 
-        {/* ACTION BUTTONS */}
-        <View style={{ marginTop: 28, gap: 12 }}>
-          <Button title="Save Data" onPress={onSave} />
-          <ResetButton title="Reset / Clear Data" onPress={resetForm} />
-        </View>
-      </ScrollView>
-
-      {/* DATE PICKER */}
-      <DateTimePickerModal
-        isVisible={activeDate !== null}
-        mode="date"
-        display="inline"
-        themeVariant="light"
-        onConfirm={(date: Date) => {
-          if (activeDate) update(activeDate, formatDate(date));
-          setActiveDate(null);
-        }}
-        onCancel={() => setActiveDate(null)}
-      />
     </SafeAreaView>
   );
 }
 
-/* ================= REUSABLE ================= */
+/* ---------- INPUT ---------- */
 
-function Input({ label, value, placeholder, error, onChange }: any) {
+function Input({ label, value, onChange, placeholder }: any) {
+
   return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
+      <Text>{label}</Text>
+
       <TextInput
         value={value}
         placeholder={placeholder}
-        placeholderTextColor="#94a3b8"
-        keyboardType="numeric"
+        placeholderTextColor="#9ca3af"
         onChangeText={onChange}
         style={{
           borderWidth: 1,
-          borderColor: error ? "#dc2626" : "#e5e7eb",
-          borderRadius: 14,
-          padding: 14,
-          marginTop: 6,
-          backgroundColor: "#fff",
+          borderColor: "#ccc",
+          borderRadius: 10,
+          padding: 12,
+          marginTop: 5,
         }}
       />
-      {error && <Text style={{ color: "#dc2626" }}>{error}</Text>}
     </View>
   );
 }
 
-function DateInput({ label, value, error, onPress }: any) {
-  return (
-    <TouchableOpacity onPress={onPress} style={{ marginBottom: 12 }}>
-      <Text style={{ fontWeight: "600" }}>{label}</Text>
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: error ? "#dc2626" : "#e5e7eb",
-          borderRadius: 14,
-          padding: 14,
-          marginTop: 6,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          backgroundColor: "#fff",
-        }}
-      >
-        <Calendar size={18} color="#000" />
-        <Text style={{ color: value ? "#111827" : "#94a3b8" }}>
-          {value || "Select date"}
-        </Text>
-      </View>
-      {error && <Text style={{ color: "#dc2626" }}>{error}</Text>}
-    </TouchableOpacity>
-  );
-}
+/* ---------- BUTTON ---------- */
 
-function Env({ label, icon, active, onPress }: any) {
+function Button({ title, onPress, disabled }: any) {
+
   return (
     <TouchableOpacity
       onPress={onPress}
+      disabled={disabled}
       style={{
-        flex: 1,
-        padding: 14,
-        borderRadius: 16,
-        alignItems: "center",
-        backgroundColor: active ? "#dcfce7" : "#fff",
-        borderWidth: 1,
-        borderColor: active ? "#16a34a" : "#e5e7eb",
-      }}
-    >
-      {icon}
-      <Text style={{ marginTop: 6, fontWeight: "600" }}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function Button({ title, onPress }: any) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={{
-        padding: 14,
-        borderRadius: 16,
-        alignItems: "center",
         backgroundColor: "#16a34a",
-      }}
-    >
-      <Text style={{ fontWeight: "700", color: "#fff" }}>{title}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function ResetButton({ title, onPress }: any) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={{
         padding: 14,
-        borderRadius: 16,
+        borderRadius: 10,
         alignItems: "center",
-        backgroundColor: "#fee2e2",
       }}
     >
-      <Text style={{ fontWeight: "700", color: "#dc2626" }}>{title}</Text>
+
+      <Text style={{ color: "#fff", fontWeight: "700" }}>{title}</Text>
+
     </TouchableOpacity>
   );
 }
