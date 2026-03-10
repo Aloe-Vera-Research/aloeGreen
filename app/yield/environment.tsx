@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,16 +16,21 @@ const { width } = Dimensions.get("window");
 
 type SensorPayload = {
   device_id?: string;
-  temp?: number;
-  hum?: number;
-  lux?: number;
-  soil_m?: number;
-  rainfall?: number;
-  N?: number;
-  P?: number;
-  K?: number;
-  npk_available?: boolean;
-  dht_available?: boolean;
+  temperature_c?: number;
+  humidity_pct?: number;
+  light_lux?: number;
+  soil_moisture_raw?: number;
+  rainfall_mm?: number;
+  soil_ph?: number;
+  soil_ec?: number;
+  nitrogen?: number;
+  phosphorus?: number;
+  potassium?: number;
+  dht_ok?: boolean;
+  light_ok?: boolean;
+  modbus_ok?: boolean;
+  wifi_rssi?: number;
+  uptime_ms?: number;
 };
 
 // HiveMQ Cloud
@@ -39,6 +44,8 @@ export default function EnvironmentScreen() {
   const [sensorData, setSensorData] = useState<SensorPayload | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastSync, setLastSync] = useState("Waiting for data...");
+  const [messageCount, setMessageCount] = useState(0);
+
   const clientRef = useRef<MqttClient | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -59,13 +66,23 @@ export default function EnvironmentScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const connectMqtt = () => {
+  const disconnectMqtt = () => {
     if (clientRef.current) {
-      clientRef.current.end(true);
+      try {
+        clientRef.current.removeAllListeners();
+        clientRef.current.end(true);
+      } catch (e) {
+        console.log("MQTT cleanup error:", e);
+      }
       clientRef.current = null;
     }
+  };
+
+  const connectMqtt = () => {
+    disconnectMqtt();
 
     const mqttUrl = `wss://${HIVEMQ_HOST}:${HIVEMQ_PORT}/mqtt`;
+    console.log("Connecting MQTT to:", mqttUrl);
 
     const client = mqtt.connect(mqttUrl, {
       username: MQTT_USERNAME,
@@ -74,11 +91,13 @@ export default function EnvironmentScreen() {
       clean: true,
       reconnectPeriod: 3000,
       connectTimeout: 30000,
+      keepalive: 60,
     });
 
     clientRef.current = client;
 
     client.on("connect", () => {
+      console.log("MQTT connected");
       setIsConnected(true);
 
       client.subscribe(MQTT_TOPIC, { qos: 0 }, (err) => {
@@ -92,6 +111,7 @@ export default function EnvironmentScreen() {
 
     client.on("reconnect", () => {
       console.log("Reconnecting to HiveMQ...");
+      setIsConnected(false);
     });
 
     client.on("error", (err) => {
@@ -100,22 +120,47 @@ export default function EnvironmentScreen() {
     });
 
     client.on("close", () => {
-      setIsConnected(false);
       console.log("MQTT connection closed");
+      setIsConnected(false);
+    });
+
+    client.on("offline", () => {
+      console.log("MQTT offline");
+      setIsConnected(false);
     });
 
     client.on("message", (_topic, message) => {
       try {
-        const parsed: SensorPayload = JSON.parse(message.toString());
+        const raw = message.toString();
+        console.log("MQTT raw payload:", raw);
+
+        const parsed: SensorPayload = JSON.parse(raw);
+        console.log("MQTT parsed payload:", parsed);
+
         setSensorData(parsed);
+        setMessageCount((prev) => prev + 1);
 
         const now = new Date();
         setLastSync(
           `Today • ${now.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
+            second: "2-digit",
           })}`
         );
+
+        Animated.sequence([
+          Animated.timing(fadeAnim, {
+            toValue: 0.92,
+            duration: 120,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: true,
+          }),
+        ]).start();
       } catch (e) {
         console.log("Invalid MQTT payload:", e);
       }
@@ -126,34 +171,66 @@ export default function EnvironmentScreen() {
     connectMqtt();
 
     return () => {
-      if (clientRef.current) {
-        clientRef.current.end(true);
-        clientRef.current = null;
-      }
+      disconnectMqtt();
     };
   }, []);
 
-  const temperature = sensorData?.temp ?? 0;
-  const soilMoisture = sensorData?.soil_m ?? 0;
-  const humidity = sensorData?.hum ?? 0;
-  const rainfall = sensorData?.rainfall ?? 0;
+  const temperature = sensorData?.temperature_c ?? 0;
+  const soilMoistureRaw = sensorData?.soil_moisture_raw ?? 0;
+  const humidity = sensorData?.humidity_pct ?? 0;
+  const rainfall = sensorData?.rainfall_mm ?? 0;
+  const lux = sensorData?.light_lux ?? 0;
+  const soilPH = sensorData?.soil_ph ?? 0;
+  const soilEC = sensorData?.soil_ec ?? 0;
+  const nitrogen = sensorData?.nitrogen ?? 0;
+  const phosphorus = sensorData?.phosphorus ?? 0;
+  const potassium = sensorData?.potassium ?? 0;
+
+  const dhtOk = sensorData?.dht_ok ?? false;
+  const lightOk = sensorData?.light_ok ?? false;
+  const modbusOk = sensorData?.modbus_ok ?? false;
+
+  const soilMoisturePercent = useMemo(() => {
+    const percent = ((4095 - soilMoistureRaw) / 4095) * 100;
+    return Math.max(0, Math.min(100, percent));
+  }, [soilMoistureRaw]);
 
   const getTemperatureStatus = () => {
-    if (temperature > 35) return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
-    if (temperature > 30) return { level: "Warning", color: "#F57C00", icon: "warning" as const };
+    if (!dhtOk) {
+      return { level: "No Data", color: "#9E9E9E", icon: "remove-circle" as const };
+    }
+    if (temperature > 35) {
+      return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
+    }
+    if (temperature > 30) {
+      return { level: "Warning", color: "#F57C00", icon: "warning" as const };
+    }
     return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const getMoistureStatus = () => {
-    if (soilMoisture < 30) return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
-    if (soilMoisture < 40) return { level: "Low", color: "#F57C00", icon: "warning" as const };
-    if (soilMoisture > 70) return { level: "High", color: "#1976D2", icon: "information-circle" as const };
+    if (soilMoisturePercent < 30) {
+      return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
+    }
+    if (soilMoisturePercent < 40) {
+      return { level: "Low", color: "#F57C00", icon: "warning" as const };
+    }
+    if (soilMoisturePercent > 70) {
+      return { level: "High", color: "#1976D2", icon: "information-circle" as const };
+    }
     return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const getHumidityStatus = () => {
-    if (humidity > 80) return { level: "High", color: "#1976D2", icon: "information-circle" as const };
-    if (humidity < 40) return { level: "Low", color: "#F57C00", icon: "warning" as const };
+    if (!dhtOk) {
+      return { level: "No Data", color: "#9E9E9E", icon: "remove-circle" as const };
+    }
+    if (humidity > 80) {
+      return { level: "High", color: "#1976D2", icon: "information-circle" as const };
+    }
+    if (humidity < 40) {
+      return { level: "Low", color: "#F57C00", icon: "warning" as const };
+    }
     return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
@@ -163,13 +240,18 @@ export default function EnvironmentScreen() {
 
   const calculateHealthScore = () => {
     let score = 100;
-    if (temperature > 35) score -= 30;
-    else if (temperature > 30) score -= 15;
 
-    if (soilMoisture < 30) score -= 30;
-    else if (soilMoisture < 40) score -= 15;
+    if (dhtOk) {
+      if (temperature > 35) score -= 30;
+      else if (temperature > 30) score -= 15;
 
-    if (humidity > 80 || humidity < 40) score -= 10;
+      if (humidity > 80 || humidity < 40) score -= 10;
+    } else {
+      score -= 10;
+    }
+
+    if (soilMoisturePercent < 30) score -= 30;
+    else if (soilMoisturePercent < 40) score -= 15;
 
     return Math.max(0, score);
   };
@@ -182,35 +264,35 @@ export default function EnvironmentScreen() {
     {
       id: 1,
       label: "Temperature",
-      value: Number(temperature).toFixed(1),
+      value: dhtOk ? Number(temperature).toFixed(1) : "--",
       unit: "°C",
       icon: "thermometer-outline",
       gradient: ["#FF6B35", "#F7931E"],
       status: tempStatus,
       optimal: "25-35°C",
-      progress: Math.min(temperature / 40, 1),
+      progress: dhtOk ? Math.max(0, Math.min(temperature / 40, 1)) : 0,
     },
     {
       id: 2,
       label: "Soil Moisture",
-      value: Math.round(soilMoisture).toString(),
+      value: Math.round(soilMoisturePercent).toString(),
       unit: "%",
       icon: "water-outline",
       gradient: ["#4FC3F7", "#29B6F6"],
       status: moistureStatus,
       optimal: "40-70%",
-      progress: Math.max(0, Math.min(soilMoisture / 100, 1)),
+      progress: Math.max(0, Math.min(soilMoisturePercent / 100, 1)),
     },
     {
       id: 3,
       label: "Humidity",
-      value: Number(humidity).toFixed(1),
+      value: dhtOk ? Number(humidity).toFixed(1) : "--",
       unit: "%",
       icon: "cloud-outline",
       gradient: ["#78909C", "#607D8B"],
       status: humidityStatus,
       optimal: "40-80%",
-      progress: Math.max(0, Math.min(humidity / 100, 1)),
+      progress: dhtOk ? Math.max(0, Math.min(humidity / 100, 1)) : 0,
     },
     {
       id: 4,
@@ -221,9 +303,11 @@ export default function EnvironmentScreen() {
       gradient: ["#66BB6A", "#43A047"],
       status: { level: "Live", color: "#546E7A", icon: "water" as const },
       optimal: "Accumulated",
-      progress: Math.min(rainfall / 10, 1),
+      progress: Math.max(0, Math.min(rainfall / 10, 1)),
     },
   ];
+
+  const hasLiveData = sensorData !== null;
 
   return (
     <ScrollView
@@ -304,6 +388,18 @@ export default function EnvironmentScreen() {
           </LinearGradient>
         </Animated.View>
       </View>
+
+      {!hasLiveData && (
+        <View style={styles.analysisSection}>
+          <View style={styles.analysisCard}>
+            <Text style={styles.analysisLabel}>Waiting for first MQTT message</Text>
+            <Text style={styles.analysisDescription}>
+              Broker connection is {isConnected ? "active" : "not active"}.
+              Once a payload arrives on {MQTT_TOPIC}, the cards will update here.
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.sensorsSection}>
         <Text style={styles.sectionTitle}>Sensor Readings</Text>
@@ -394,7 +490,9 @@ export default function EnvironmentScreen() {
               <View>
                 <Text style={styles.analysisLabel}>Heat Stress</Text>
                 <Text style={styles.analysisDescription}>
-                  {temperature > 35
+                  {!dhtOk
+                    ? "Temperature sensor data unavailable"
+                    : temperature > 35
                     ? "Provide shade & increase watering"
                     : temperature > 30
                     ? "Monitor plant health"
@@ -424,9 +522,9 @@ export default function EnvironmentScreen() {
               <View>
                 <Text style={styles.analysisLabel}>Water Stress</Text>
                 <Text style={styles.analysisDescription}>
-                  {soilMoisture < 30
+                  {soilMoisturePercent < 30
                     ? "Immediate irrigation needed"
-                    : soilMoisture < 40
+                    : soilMoisturePercent < 40
                     ? "Schedule irrigation soon"
                     : "Moisture levels adequate"}
                 </Text>
@@ -449,7 +547,7 @@ export default function EnvironmentScreen() {
       <View style={styles.recommendationsSection}>
         <Text style={styles.sectionTitle}>Smart Recommendations</Text>
 
-        {temperature > 30 && (
+        {dhtOk && temperature > 30 && (
           <View style={[styles.recommendationCard, styles.warningCard]}>
             <View style={styles.recommendationIcon}>
               <Ionicons name="sunny" size={20} color="#F57C00" />
@@ -463,7 +561,7 @@ export default function EnvironmentScreen() {
           </View>
         )}
 
-        {soilMoisture < 40 && (
+        {soilMoisturePercent < 40 && (
           <View style={[styles.recommendationCard, styles.criticalCard]}>
             <View style={styles.recommendationIcon}>
               <Ionicons name="water" size={20} color="#1976D2" />
@@ -477,19 +575,37 @@ export default function EnvironmentScreen() {
           </View>
         )}
 
-        {temperature <= 30 && soilMoisture >= 40 && (
+        {((!dhtOk) || temperature <= 30) && soilMoisturePercent >= 40 && (
           <View style={[styles.recommendationCard, styles.successCard]}>
             <View style={styles.recommendationIcon}>
               <Ionicons name="checkmark-circle" size={20} color="#2E7D32" />
             </View>
             <View style={styles.recommendationContent}>
-              <Text style={styles.recommendationTitle}>Optimal Conditions</Text>
+              <Text style={styles.recommendationTitle}>Stable Conditions</Text>
               <Text style={styles.recommendationText}>
-                All environmental parameters are within ideal range. Continue current management practices.
+                Current soil condition looks acceptable. Continue monitoring the live feed.
               </Text>
             </View>
           </View>
         )}
+      </View>
+
+      <View style={styles.analysisSection}>
+        <Text style={styles.sectionTitle}>Additional Readings</Text>
+        <View style={styles.analysisCard}>
+          <Text style={styles.analysisLabel}>Device: {sensorData?.device_id ?? "--"}</Text>
+          <Text style={styles.analysisLabel}>Messages Received: {messageCount}</Text>
+          <Text style={styles.analysisLabel}>Light: {lightOk ? Number(lux).toFixed(0) : "--"} lx</Text>
+          <Text style={styles.analysisLabel}>Soil pH: {modbusOk ? Number(soilPH).toFixed(1) : "--"}</Text>
+          <Text style={styles.analysisLabel}>Soil EC: {modbusOk ? soilEC : "--"}</Text>
+          <Text style={styles.analysisLabel}>Nitrogen: {modbusOk ? nitrogen : "--"}</Text>
+          <Text style={styles.analysisLabel}>Phosphorus: {modbusOk ? phosphorus : "--"}</Text>
+          <Text style={styles.analysisLabel}>Potassium: {modbusOk ? potassium : "--"}</Text>
+          <Text style={styles.analysisLabel}>WiFi RSSI: {sensorData?.wifi_rssi ?? "--"} dBm</Text>
+          <Text style={styles.analysisLabel}>DHT Status: {dhtOk ? "OK" : "FAIL"}</Text>
+          <Text style={styles.analysisLabel}>Light Status: {lightOk ? "OK" : "FAIL"}</Text>
+          <Text style={styles.analysisLabel}>RS485 Status: {modbusOk ? "OK" : "FAIL"}</Text>
+        </View>
       </View>
 
       <View style={styles.footer}>

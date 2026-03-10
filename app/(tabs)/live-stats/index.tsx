@@ -30,16 +30,21 @@ type Stat = {
 
 type SensorPayload = {
   device_id?: string;
-  temp?: number;
-  hum?: number;
-  lux?: number;
-  soil_m?: number;
-  rainfall?: number;
-  N?: number;
-  P?: number;
-  K?: number;
-  npk_available?: boolean;
-  dht_available?: boolean;
+  temperature_c?: number;
+  humidity_pct?: number;
+  light_lux?: number;
+  soil_moisture_raw?: number;
+  rainfall_mm?: number;
+  soil_ph?: number;
+  soil_ec?: number;
+  nitrogen?: number;
+  phosphorus?: number;
+  potassium?: number;
+  dht_ok?: boolean;
+  light_ok?: boolean;
+  modbus_ok?: boolean;
+  wifi_rssi?: number;
+  uptime_ms?: number;
 };
 
 const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
@@ -50,7 +55,11 @@ const MQTT_TOPIC = "aloeGreen/device01/data";
 const MQTT_USERNAME = "eesara";
 const MQTT_PASSWORD = "Eesara@123";
 
-function getTrend(current?: number, previous?: number, tolerance = 0.01): Trend {
+function getTrend(
+  current?: number,
+  previous?: number,
+  tolerance = 0.01,
+): Trend {
   if (current == null || previous == null) return "stable";
   if (current > previous + tolerance) return "up";
   if (current < previous - tolerance) return "down";
@@ -64,10 +73,18 @@ function formatValue(value?: number, decimals = 1) {
 
 function StatCard({ stat }: { stat: Stat }) {
   const trendColor =
-    stat.trend === "up" ? "#E53935" : stat.trend === "down" ? "#0288D1" : "#4CAF50";
+    stat.trend === "up"
+      ? "#E53935"
+      : stat.trend === "down"
+        ? "#0288D1"
+        : "#4CAF50";
 
   const trendIcon =
-    stat.trend === "up" ? "trending-up" : stat.trend === "down" ? "trending-down" : "remove";
+    stat.trend === "up"
+      ? "trending-up"
+      : stat.trend === "down"
+        ? "trending-down"
+        : "remove";
 
   return (
     <View style={styles.card}>
@@ -76,13 +93,23 @@ function StatCard({ stat }: { stat: Stat }) {
       <View style={styles.cardHeader}>
         <View style={[styles.cardIconWrap, { backgroundColor: stat.iconBg }]}>
           {stat.iconLib === "mci" ? (
-            <MaterialCommunityIcons name={stat.iconName as any} size={20} color={stat.accent} />
+            <MaterialCommunityIcons
+              name={stat.iconName as any}
+              size={20}
+              color={stat.accent}
+            />
           ) : (
-            <Ionicons name={stat.iconName as any} size={20} color={stat.accent} />
+            <Ionicons
+              name={stat.iconName as any}
+              size={20}
+              color={stat.accent}
+            />
           )}
         </View>
 
-        <View style={[styles.trendBadge, { backgroundColor: `${trendColor}15` }]}>
+        <View
+          style={[styles.trendBadge, { backgroundColor: `${trendColor}15` }]}
+        >
           <Ionicons name={trendIcon as any} size={13} color={trendColor} />
         </View>
       </View>
@@ -91,12 +118,19 @@ function StatCard({ stat }: { stat: Stat }) {
       <Text style={styles.cardSublabel}>{stat.sublabel}</Text>
 
       <View style={styles.valueRow}>
-        <Text style={[styles.cardValue, { color: stat.accent }]}>{stat.value}</Text>
+        <Text style={[styles.cardValue, { color: stat.accent }]}>
+          {stat.value}
+        </Text>
         {stat.unit ? <Text style={styles.cardUnit}>{stat.unit}</Text> : null}
       </View>
 
       <View style={styles.cardBarBg}>
-        <View style={[styles.cardBarFill, { backgroundColor: stat.accent, width: "55%" }]} />
+        <View
+          style={[
+            styles.cardBarFill,
+            { backgroundColor: stat.accent, width: "55%" },
+          ]}
+        />
       </View>
     </View>
   );
@@ -104,7 +138,9 @@ function StatCard({ stat }: { stat: Stat }) {
 
 export default function LiveStats() {
   const [sensorData, setSensorData] = useState<SensorPayload | null>(null);
-  const [prevSensorData, setPrevSensorData] = useState<SensorPayload | null>(null);
+  const [prevSensorData, setPrevSensorData] = useState<SensorPayload | null>(
+    null,
+  );
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isConnected, setIsConnected] = useState(false);
   const [tick, setTick] = useState(0);
@@ -140,12 +176,13 @@ export default function LiveStats() {
       clientId: `expo_${Math.random().toString(16).slice(2, 10)}`,
       clean: true,
       reconnectPeriod: 3000,
-      connectTimeout: 30_000,
+      connectTimeout: 30000,
     });
 
     clientRef.current = client;
 
     client.on("connect", () => {
+      console.log("MQTT connected");
       setIsConnected(true);
 
       client.subscribe(MQTT_TOPIC, { qos: 0 }, (err) => {
@@ -167,13 +204,14 @@ export default function LiveStats() {
     });
 
     client.on("close", () => {
-      setIsConnected(false);
       console.log("MQTT connection closed");
+      setIsConnected(false);
     });
 
     client.on("message", (_topic, message) => {
       try {
         const parsed: SensorPayload = JSON.parse(message.toString());
+        console.log("MQTT payload:", parsed);
 
         Animated.sequence([
           Animated.timing(fadeAnim, {
@@ -188,8 +226,11 @@ export default function LiveStats() {
           }),
         ]).start();
 
-        setPrevSensorData(sensorData);
-        setSensorData(parsed);
+        setSensorData((current) => {
+          setPrevSensorData(current);
+          return parsed;
+        });
+
         setLastUpdate(new Date());
         setTick((t) => t + 1);
       } catch (e) {
@@ -201,20 +242,63 @@ export default function LiveStats() {
       client.end(true);
       clientRef.current = null;
     };
-  }, [fadeAnim, sensorData]);
+  }, []);
+
+  const soilMoisturePercent =
+    sensorData?.soil_moisture_raw != null
+      ? Math.max(
+          0,
+          Math.min(100, ((4095 - sensorData.soil_moisture_raw) / 4095) * 100),
+        )
+      : undefined;
+
+  const prevSoilMoisturePercent =
+    prevSensorData?.soil_moisture_raw != null
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            ((4095 - prevSensorData.soil_moisture_raw) / 4095) * 100,
+          ),
+        )
+      : undefined;
 
   const stats: Stat[] = useMemo(() => {
-    const tempTrend = getTrend(sensorData?.temp, prevSensorData?.temp, 0.1);
-    const humTrend = getTrend(sensorData?.hum, prevSensorData?.hum, 0.1);
-    const soilTrend = getTrend(sensorData?.soil_m, prevSensorData?.soil_m, 0.1);
-    const rainTrend = getTrend(sensorData?.rainfall, prevSensorData?.rainfall, 0.05);
-    const luxTrend = getTrend(sensorData?.lux, prevSensorData?.lux, 1);
-    const nTrend = getTrend(sensorData?.N, prevSensorData?.N, 0.1);
+    const tempTrend = getTrend(
+      sensorData?.temperature_c,
+      prevSensorData?.temperature_c,
+      0.1,
+    );
+    const humTrend = getTrend(
+      sensorData?.humidity_pct,
+      prevSensorData?.humidity_pct,
+      0.1,
+    );
+    const soilTrend = getTrend(
+      soilMoisturePercent,
+      prevSoilMoisturePercent,
+      0.1,
+    );
+    const rainTrend = getTrend(
+      sensorData?.rainfall_mm,
+      prevSensorData?.rainfall_mm,
+      0.05,
+    );
+    const luxTrend = getTrend(
+      sensorData?.light_lux,
+      prevSensorData?.light_lux,
+      1,
+    );
+    const nTrend = getTrend(
+      sensorData?.nitrogen,
+      prevSensorData?.nitrogen,
+      0.1,
+    );
 
     return [
       {
         label: "Temperature",
-        value: formatValue(sensorData?.temp, 1),
+        value: formatValue(sensorData?.temperature_c, 1),
         unit: "°C",
         iconName: "thermometer",
         iconLib: "mci",
@@ -225,7 +309,7 @@ export default function LiveStats() {
       },
       {
         label: "Humidity",
-        value: formatValue(sensorData?.hum, 1),
+        value: formatValue(sensorData?.humidity_pct, 1),
         unit: "%",
         iconName: "water-percent",
         iconLib: "mci",
@@ -236,7 +320,7 @@ export default function LiveStats() {
       },
       {
         label: "Soil Moisture",
-        value: formatValue(sensorData?.soil_m, 0),
+        value: formatValue(soilMoisturePercent, 0),
         unit: "%",
         iconName: "sprout-outline",
         iconLib: "mci",
@@ -247,7 +331,7 @@ export default function LiveStats() {
       },
       {
         label: "Light",
-        value: formatValue(sensorData?.lux, 0),
+        value: formatValue(sensorData?.light_lux, 0),
         unit: "lx",
         iconName: "sunny-outline",
         iconLib: "ion",
@@ -258,7 +342,7 @@ export default function LiveStats() {
       },
       {
         label: "Rainfall",
-        value: formatValue(sensorData?.rainfall, 2),
+        value: formatValue(sensorData?.rainfall_mm, 2),
         unit: "mm",
         iconName: "rainy-outline",
         iconLib: "ion",
@@ -269,17 +353,26 @@ export default function LiveStats() {
       },
       {
         label: "Nitrogen",
-        value: sensorData?.npk_available ? formatValue(sensorData?.N, 0) : "--",
+        value: sensorData?.modbus_ok
+          ? formatValue(sensorData?.nitrogen, 0)
+          : "--",
         unit: "",
         iconName: "flask-outline",
         iconLib: "ion",
         trend: nTrend,
         accent: "#6A1B9A",
         iconBg: "#F3E5F5",
-        sublabel: sensorData?.npk_available ? "NPK sensor" : "NPK unavailable",
+        sublabel: sensorData?.modbus_ok
+          ? "RS485 soil sensor"
+          : "Sensor unavailable",
       },
     ];
-  }, [sensorData, prevSensorData]);
+  }, [
+    sensorData,
+    prevSensorData,
+    soilMoisturePercent,
+    prevSoilMoisturePercent,
+  ]);
 
   const [progress, setProgress] = useState(0);
   useEffect(() => {
@@ -298,8 +391,14 @@ export default function LiveStats() {
   }, [tick]);
 
   return (
-    <LinearGradient colors={["#E8F5E9", "#F1F8E9", "#FFFFFF"]} style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+    <LinearGradient
+      colors={["#E8F5E9", "#F1F8E9", "#FFFFFF"]}
+      style={styles.container}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Animated.View
           style={[
             styles.header,
@@ -313,12 +412,18 @@ export default function LiveStats() {
                 style={StyleSheet.absoluteFill}
                 borderRadius={28}
               />
-              <MaterialCommunityIcons name="access-point" size={28} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="access-point"
+                size={28}
+                color="#FFFFFF"
+              />
             </View>
 
             <View style={styles.headerTextWrap}>
               <Text style={styles.title}>Farm Dashboard</Text>
-              <Text style={styles.subtitle}>Real-time Environmental Monitoring</Text>
+              <Text style={styles.subtitle}>
+                Real-time Environmental Monitoring
+              </Text>
             </View>
           </View>
 
@@ -350,7 +455,11 @@ export default function LiveStats() {
           <View style={styles.summaryRow}>
             {[
               { icon: "leaf-outline", label: "6 Sensors", sub: "Active" },
-              { icon: "wifi-outline", label: isConnected ? "Connected" : "Offline", sub: "Network" },
+              {
+                icon: "wifi-outline",
+                label: isConnected ? "Connected" : "Offline",
+                sub: "Network",
+              },
               { icon: "reload-outline", label: "MQTT Live", sub: "HiveMQ" },
             ].map((item, i) => (
               <View key={i} style={styles.summaryItem}>
@@ -370,7 +479,12 @@ export default function LiveStats() {
           <Text style={styles.sectionLabel}>Sensor Readings</Text>
           <View style={styles.sectionLine} />
           <View style={styles.refreshPill}>
-            <View style={[styles.refreshBar, { width: `${progress * 100}%` as any }]} />
+            <View
+              style={[
+                styles.refreshBar,
+                { width: `${progress * 100}%` as any },
+              ]}
+            />
             <Text style={styles.refreshText}>Live</Text>
           </View>
         </Animated.View>
@@ -393,10 +507,16 @@ export default function LiveStats() {
             <View style={styles.heroInner}>
               <View style={styles.heroLeft}>
                 <View style={styles.heroIconWrap}>
-                  <MaterialCommunityIcons name="chart-areaspline" size={24} color="#FFFFFF" />
+                  <MaterialCommunityIcons
+                    name="chart-areaspline"
+                    size={24}
+                    color="#FFFFFF"
+                  />
                 </View>
                 <Text style={styles.heroLabel}>Farm Conditions</Text>
-                <Text style={styles.heroValue}>{isConnected ? "Live" : "Waiting"}</Text>
+                <Text style={styles.heroValue}>
+                  {isConnected ? "Live" : "Waiting"}
+                </Text>
                 <Text style={styles.heroSub}>
                   {sensorData
                     ? `Device: ${sensorData.device_id ?? "device01"}`
@@ -406,12 +526,16 @@ export default function LiveStats() {
 
               <View style={styles.heroRight}>
                 {[
-                  sensorData?.dht_available ? "DHT OK" : "DHT --",
-                  sensorData?.npk_available ? "NPK OK" : "NPK --",
-                  sensorData?.soil_m != null ? "Soil OK" : "Soil --",
+                  sensorData?.dht_ok ? "DHT OK" : "DHT --",
+                  sensorData?.modbus_ok ? "NPK OK" : "NPK --",
+                  sensorData?.soil_moisture_raw != null ? "Soil OK" : "Soil --",
                 ].map((t, i) => (
                   <View key={i} style={styles.heroBadge}>
-                    <Ionicons name="checkmark-circle" size={13} color="#A5D6A7" />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={13}
+                      color="#A5D6A7"
+                    />
                     <Text style={styles.heroBadgeText}>{t}</Text>
                   </View>
                 ))}
@@ -460,7 +584,12 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   headerTextWrap: { flex: 1 },
-  title: { fontSize: 26, fontWeight: "800", color: "#1B5E20", letterSpacing: -0.5 },
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#1B5E20",
+    letterSpacing: -0.5,
+  },
   subtitle: { fontSize: 13, color: "#4E6E4E", fontWeight: "500", marginTop: 3 },
 
   statusBanner: {
@@ -479,7 +608,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statusLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#4CAF50",
+  },
   statusText: { fontSize: 13, fontWeight: "700", color: "#2E7D32" },
   statusRight: { flexDirection: "row", alignItems: "center", gap: 5 },
   statusTime: { fontSize: 12, color: "#4E6E4E", fontWeight: "600" },
