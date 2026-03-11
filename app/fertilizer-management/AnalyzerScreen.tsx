@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState, useEffect, useRef } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Dimensions,
   ScrollView,
@@ -17,6 +17,7 @@ const screenWidth = Dimensions.get("window").width;
 
 export default function AnalyzerScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [selectedPeriod, setSelectedPeriod] = useState("4W");
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -37,85 +38,122 @@ export default function AnalyzerScreen() {
     ]).start();
   }, []);
 
+  const nValue = Number(params.N ?? 0);
+  const pValue = Number(params.P ?? 0);
+  const kValue = Number(params.K ?? 0);
+  const soilType = String(params.soil ?? "Loamy");
+  const stage = String(params.stage ?? "Mature");
+
+  const prediction = useMemo(() => {
+    try {
+      return params.prediction ? JSON.parse(String(params.prediction)) : null;
+    } catch (error) {
+      console.log("Analyzer prediction parse error:", error);
+      return null;
+    }
+  }, [params.prediction]);
+
   const chartWidth = screenWidth - 60;
 
-  // Weekly usage data
   const usageData = {
     labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
     datasets: [
       {
-        data: [20, 25, 18, 30],
+        data: [
+          Math.max(10, Math.round(nValue * 0.25)),
+          Math.max(10, Math.round((nValue + pValue) * 0.18)),
+          Math.max(10, Math.round((pValue + kValue) * 0.15)),
+          Math.max(10, Math.round((nValue + pValue + kValue) * 0.12)),
+        ],
         color: (opacity = 1) => `rgba(46,125,50, ${opacity})`,
         strokeWidth: 3,
       },
     ],
   };
 
-  // NPK data
   const npkData = {
     labels: ["Nitrogen", "Phosphorus", "Potassium"],
-    datasets: [{ data: [65, 45, 80] }],
+    datasets: [{ data: [nValue, pValue, kValue] }],
   };
 
-  // Statistics
+  const totalUsage = usageData.datasets[0].data.reduce((a, b) => a + b, 0);
+  const avgUsage = Math.round(totalUsage / usageData.datasets[0].data.length);
+
+  const efficiency =
+    nValue >= 30 && pValue >= 30 && kValue >= 30
+      ? 90
+      : nValue >= 20 && pValue >= 20 && kValue >= 20
+      ? 78
+      : 62;
+
   const stats = [
     {
       icon: "trending-up",
       label: "Total Usage",
-      value: "93g",
-      subtext: "This month",
+      value: `${totalUsage}g`,
+      subtext: "Estimated",
       color: "#4CAF50",
     },
     {
       icon: "calendar",
       label: "Avg. Weekly",
-      value: "23g",
+      value: `${avgUsage}g`,
       subtext: "Per week",
       color: "#2196F3",
     },
     {
       icon: "leaf",
       label: "Efficiency",
-      value: "87%",
-      subtext: "Optimal range",
+      value: `${efficiency}%`,
+      subtext: "NPK based",
       color: "#FF9800",
     },
     {
       icon: "flash",
-      label: "Next Application",
-      value: "2 days",
-      subtext: "Recommended",
+      label: "Plant Stage",
+      value: stage,
+      subtext: soilType,
       color: "#9C27B0",
     },
   ];
 
-  // AI recommendations
-  const aiRecommendations = [
-    {
-      week: "Week 1",
-      advice: "Increase nitrogen dose slightly for vegetative growth.",
-      priority: "medium",
-      icon: "arrow-up-circle",
-    },
-    {
-      week: "Week 2",
-      advice: "Maintain current P & K dosage. Plant response is optimal.",
-      priority: "low",
-      icon: "checkmark-circle",
-    },
-    {
-      week: "Week 3",
-      advice: "Reduce nitrogen slightly and monitor soil moisture levels.",
-      priority: "high",
-      icon: "warning",
-    },
-    {
-      week: "Week 4",
-      advice: "Keep balanced application. Monitor plant growth indicators.",
-      priority: "low",
-      icon: "information-circle",
-    },
-  ];
+  const aiRecommendations =
+    prediction?.insights ||
+    [
+      {
+        week: "Insight 1",
+        advice:
+          nValue < 30
+            ? "Nitrogen is low. Increase nitrogen-support fertilizer."
+            : "Nitrogen level is in a safer range.",
+        priority: nValue < 30 ? "high" : "low",
+        icon: nValue < 30 ? "warning" : "checkmark-circle",
+      },
+      {
+        week: "Insight 2",
+        advice:
+          pValue < 30
+            ? "Phosphorus is low. Consider phosphorus-rich application."
+            : "Phosphorus level is acceptable.",
+        priority: pValue < 30 ? "medium" : "low",
+        icon: pValue < 30 ? "arrow-up-circle" : "checkmark-circle",
+      },
+      {
+        week: "Insight 3",
+        advice:
+          kValue < 30
+            ? "Potassium is low. Potassium support may be required."
+            : "Potassium level is healthy.",
+        priority: kValue < 30 ? "medium" : "low",
+        icon: kValue < 30 ? "warning" : "information-circle",
+      },
+      {
+        week: "Insight 4",
+        advice: `For ${soilType} soil and ${stage} stage plants, continue monitoring weekly for stable nutrition balance.`,
+        priority: "low",
+        icon: "information-circle",
+      },
+    ];
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -130,6 +168,12 @@ export default function AnalyzerScreen() {
     }
   };
 
+  const getStatus = (value: number) => {
+    if (value >= 60) return "High";
+    if (value >= 30) return "Good";
+    return "Low";
+  };
+
   const periods = ["1W", "4W", "3M", "1Y"];
 
   return (
@@ -142,7 +186,6 @@ export default function AnalyzerScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <Animated.View
           style={[
             styles.header,
@@ -167,7 +210,6 @@ export default function AnalyzerScreen() {
           </View>
         </Animated.View>
 
-        {/* Period Selector */}
         <Animated.View
           style={[
             styles.periodSelector,
@@ -196,7 +238,6 @@ export default function AnalyzerScreen() {
           ))}
         </Animated.View>
 
-        {/* Statistics Grid */}
         <Animated.View
           style={[
             styles.statsGrid,
@@ -231,7 +272,6 @@ export default function AnalyzerScreen() {
           ))}
         </Animated.View>
 
-        {/* Usage Trend Chart */}
         <Animated.View
           style={[
             styles.chartCard,
@@ -245,12 +285,12 @@ export default function AnalyzerScreen() {
               </View>
               <View>
                 <Text style={styles.chartTitle}>Usage Trend</Text>
-                <Text style={styles.chartSubtitle}>Weekly fertilizer application</Text>
+                <Text style={styles.chartSubtitle}>Estimated fertilizer usage</Text>
               </View>
             </View>
             <View style={styles.chartBadge}>
               <Ionicons name="arrow-up" size={14} color="#4CAF50" />
-              <Text style={styles.chartBadgeText}>+12%</Text>
+              <Text style={styles.chartBadgeText}>Live based</Text>
             </View>
           </View>
 
@@ -290,12 +330,11 @@ export default function AnalyzerScreen() {
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: "#2E7D32" }]} />
-              <Text style={styles.legendText}>Fertilizer Dosage (grams)</Text>
+              <Text style={styles.legendText}>Estimated Dosage (grams)</Text>
             </View>
           </View>
         </Animated.View>
 
-        {/* NPK Distribution Chart */}
         <Animated.View
           style={[
             styles.chartCard,
@@ -342,9 +381,9 @@ export default function AnalyzerScreen() {
 
           <View style={styles.npkLegend}>
             {[
-              { label: "Nitrogen (N)", color: "#4CAF50", status: "Good" },
-              { label: "Phosphorus (P)", color: "#FF9800", status: "Low" },
-              { label: "Potassium (K)", color: "#2196F3", status: "High" },
+              { label: "Nitrogen (N)", color: "#4CAF50", status: getStatus(nValue) },
+              { label: "Phosphorus (P)", color: "#FF9800", status: getStatus(pValue) },
+              { label: "Potassium (K)", color: "#2196F3", status: getStatus(kValue) },
             ].map((item, index) => (
               <View key={index} style={styles.npkLegendItem}>
                 <View style={[styles.npkLegendDot, { backgroundColor: item.color }]} />
@@ -364,7 +403,6 @@ export default function AnalyzerScreen() {
           </View>
         </Animated.View>
 
-        {/* AI Recommendations Section */}
         <Animated.View
           style={[
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
@@ -377,7 +415,7 @@ export default function AnalyzerScreen() {
             <Text style={styles.sectionTitle}>AI Insights</Text>
           </View>
 
-          {aiRecommendations.map((item, index) => (
+          {aiRecommendations.map((item: any, index: number) => (
             <Animated.View
               key={index}
               style={[
@@ -441,7 +479,6 @@ export default function AnalyzerScreen() {
           ))}
         </Animated.View>
 
-        {/* Action Card */}
         <TouchableOpacity
           style={styles.actionCard}
           activeOpacity={0.8}
@@ -473,381 +510,120 @@ export default function AnalyzerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-    gap: 12,
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 24, gap: 12 },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
+    justifyContent: "center", alignItems: "center", shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
-  headerContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+  headerContent: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   headerIconWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF",
+    justifyContent: "center", alignItems: "center", shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1B5E20",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: "#2E7D32",
-    fontWeight: "500",
-  },
+  headerTitle: { fontSize: 22, fontWeight: "800", color: "#1B5E20" },
+  headerSubtitle: { fontSize: 13, color: "#2E7D32", fontWeight: "500" },
   periodSelector: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    flexDirection: "row", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 4,
+    marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
-  periodButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 12,
-  },
-  periodButtonActive: {
-    backgroundColor: "#2E7D32",
-  },
-  periodText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#4E6E4E",
-  },
-  periodTextActive: {
-    color: "#FFFFFF",
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 20,
-  },
+  periodButton: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 12 },
+  periodButtonActive: { backgroundColor: "#2E7D32" },
+  periodText: { fontSize: 14, fontWeight: "700", color: "#4E6E4E" },
+  periodTextActive: { color: "#FFFFFF" },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 20 },
   statCard: {
-    flex: 1,
-    minWidth: "47%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    flex: 1, minWidth: "47%", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16,
+    alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
   },
   statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
+    width: 48, height: 48, borderRadius: 24, justifyContent: "center",
+    alignItems: "center", marginBottom: 10,
   },
-  statLabel: {
-    fontSize: 12,
-    color: "#4E6E4E",
-    fontWeight: "600",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1B5E20",
-    marginBottom: 2,
-  },
-  statSubtext: {
-    fontSize: 11,
-    color: "#9E9E9E",
-    fontWeight: "500",
-  },
+  statLabel: { fontSize: 12, color: "#4E6E4E", fontWeight: "600", marginBottom: 4, textAlign: "center" },
+  statValue: { fontSize: 22, fontWeight: "800", color: "#1B5E20", marginBottom: 2 },
+  statSubtext: { fontSize: 11, color: "#9E9E9E", fontWeight: "500" },
   chartCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    backgroundColor: "#FFFFFF", borderRadius: 24, padding: 20, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15,
+    shadowRadius: 16, elevation: 8,
   },
   chartHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16,
   },
-  chartHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
+  chartHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
   chartIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#E8F5E9",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 48, height: 48, borderRadius: 24, backgroundColor: "#E8F5E9",
+    justifyContent: "center", alignItems: "center",
   },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1B5E20",
-  },
-  chartSubtitle: {
-    fontSize: 12,
-    color: "#4E6E4E",
-    fontWeight: "500",
-    marginTop: 2,
-  },
+  chartTitle: { fontSize: 18, fontWeight: "700", color: "#1B5E20" },
+  chartSubtitle: { fontSize: 12, color: "#4E6E4E", fontWeight: "500", marginTop: 2 },
   chartBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E8F5E9",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 4,
+    flexDirection: "row", alignItems: "center", backgroundColor: "#E8F5E9",
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 4,
   },
-  chartBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#4CAF50",
-  },
-  chartWrapper: {
-    alignItems: "center",
-    marginVertical: 12,
-  },
-  chart: {
-    borderRadius: 16,
-  },
-  chartLegend: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
-    fontSize: 13,
-    color: "#4E6E4E",
-    fontWeight: "600",
-  },
-  npkLegend: {
-    marginTop: 16,
-    gap: 10,
-  },
-  npkLegendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  npkLegendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  npkLegendLabel: {
-    flex: 1,
-    fontSize: 13,
-    color: "#4E6E4E",
-    fontWeight: "600",
-  },
-  npkStatusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  npkStatusText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
+  chartBadgeText: { fontSize: 12, fontWeight: "700", color: "#4CAF50" },
+  chartWrapper: { alignItems: "center", marginVertical: 12 },
+  chart: { borderRadius: 16 },
+  chartLegend: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 8 },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  legendText: { fontSize: 13, color: "#4E6E4E", fontWeight: "600" },
+  npkLegend: { marginTop: 16, gap: 10 },
+  npkLegendItem: { flexDirection: "row", alignItems: "center", gap: 10 },
+  npkLegendDot: { width: 10, height: 10, borderRadius: 5 },
+  npkLegendLabel: { flex: 1, fontSize: 13, color: "#4E6E4E", fontWeight: "600" },
+  npkStatusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  npkStatusText: { fontSize: 11, fontWeight: "700" },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
   sectionIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
+    justifyContent: "center", alignItems: "center", shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1B5E20",
-  },
+  sectionTitle: { fontSize: 20, fontWeight: "700", color: "#1B5E20" },
   aiCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, marginBottom: 12,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1,
+    shadowRadius: 8, elevation: 4,
   },
   aiCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12,
   },
   aiWeekBadge: {
-    backgroundColor: "#F8F9FA",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    backgroundColor: "#F8F9FA", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
   },
-  aiWeekText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#1B5E20",
-  },
+  aiWeekText: { fontSize: 12, fontWeight: "700", color: "#1B5E20" },
   aiPriorityBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
+    flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 12, gap: 6,
   },
-  priorityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  aiPriorityText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  aiCardBody: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  priorityDot: { width: 6, height: 6, borderRadius: 3 },
+  aiPriorityText: { fontSize: 11, fontWeight: "700" },
+  aiCardBody: { flexDirection: "row", gap: 12 },
   aiIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center",
   },
-  aiAdviceText: {
-    flex: 1,
-    fontSize: 14,
-    color: "#4E6E4E",
-    lineHeight: 20,
-    paddingTop: 12,
-  },
+  aiAdviceText: { flex: 1, fontSize: 14, color: "#4E6E4E", lineHeight: 20, paddingTop: 12 },
   actionCard: {
-    marginTop: 8,
-    borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    marginTop: 8, borderRadius: 20, overflow: "hidden", shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
   actionCardGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 20,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 20,
   },
-  actionCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    flex: 1,
-  },
+  actionCardContent: { flexDirection: "row", alignItems: "center", gap: 14, flex: 1 },
   actionCardIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center", alignItems: "center",
   },
-  actionCardText: {
-    flex: 1,
-  },
-  actionCardTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginBottom: 2,
-  },
-  actionCardSubtitle: {
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "500",
-  },
+  actionCardText: { flex: 1 },
+  actionCardTitle: { fontSize: 17, fontWeight: "700", color: "#FFFFFF", marginBottom: 2 },
+  actionCardSubtitle: { fontSize: 13, color: "rgba(255, 255, 255, 0.8)", fontWeight: "500" },
 });
