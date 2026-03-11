@@ -1,7 +1,7 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -9,11 +9,8 @@ import {
   TouchableOpacity,
   View,
   Animated,
-  Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-
-const { width } = Dimensions.get("window");
 
 export default function FertilizerPlanScreen() {
   const router = useRouter();
@@ -24,16 +21,26 @@ export default function FertilizerPlanScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
-  // Get data from params
   const soilType = params.soil as string;
   const plantStage = params.stage as string;
   const temperature = params.temperature as string;
   const moisture = params.moisture as string;
+  const humidity = params.humidity as string;
   const soilPH = params.soilPH as string;
   const N = params.N as string;
   const P = params.P as string;
   const K = params.K as string;
-  const fromHistory = params.fromHistory === "true";
+
+  const predictionRaw = params.prediction as string | undefined;
+
+  const prediction = useMemo(() => {
+    try {
+      return predictionRaw ? JSON.parse(predictionRaw) : null;
+    } catch (error) {
+      console.log("Plan screen prediction parse error:", error);
+      return null;
+    }
+  }, [predictionRaw]);
 
   useEffect(() => {
     Animated.parallel([
@@ -57,36 +64,37 @@ export default function FertilizerPlanScreen() {
     ]).start();
   }, []);
 
-  // Generate recommendations based on NPK levels
-  const recommendedFertilizers = [
-    {
-      type: N === "Low" ? "Urea (High Nitrogen)" : "Balanced NPK",
-      dosage: plantStage === "Baby" ? "15g per plant" : "20g per plant",
-      timing: "Morning",
-      icon: "leaf" as const,
-      color: "#4CAF50",
-    },
-    {
-      type: P === "Low" ? "DAP (Phosphorus Rich)" : "Bone Meal",
-      dosage: plantStage === "Baby" ? "10g per plant" : "15g per plant",
-      timing: "Evening",
-      icon: "flask" as const,
-      color: "#FF9800",
-    },
-    {
-      type: K === "Low" ? "Potash (High Potassium)" : "Wood Ash",
-      dosage: "10g per plant",
-      timing: "Morning",
-      icon: "nutrition" as const,
-      color: "#2196F3",
-    },
-  ];
+  const recommendedFertilizers =
+    prediction?.recommended_fertilizers ||
+    prediction?.fertilizers ||
+    [
+      {
+        type: Number(N) < 30 ? "Nitrogen Support" : "Balanced NPK",
+        dosage: plantStage === "Baby" ? "15g per plant" : "20g per plant",
+        timing: "Morning",
+        icon: "leaf",
+        color: "#4CAF50",
+      },
+      {
+        type: Number(P) < 30 ? "Phosphorus Support" : "Phosphorus Balanced",
+        dosage: plantStage === "Baby" ? "10g per plant" : "15g per plant",
+        timing: "Evening",
+        icon: "flask",
+        color: "#FF9800",
+      },
+      {
+        type: Number(K) < 30 ? "Potassium Support" : "Potassium Balanced",
+        dosage: "10g per plant",
+        timing: "Morning",
+        icon: "nutrition",
+        color: "#2196F3",
+      },
+    ];
 
-  const adviceText = `For ${soilType} soil with ${plantStage} stage plants: ${
-    N === "Low" ? "Increase nitrogen fertilizer." : ""
-  } ${P === "Low" ? "Add phosphorus supplement." : ""} ${
-    K === "Low" ? "Apply potassium booster." : ""
-  } Maintain soil pH at ${soilPH}. Always water after application and avoid over-fertilizing.`;
+  const adviceText =
+    prediction?.advice ||
+    prediction?.recommendation ||
+    `For ${soilType} soil with ${plantStage} stage plants, use the live IoT sensor values to guide fertilizer application. Maintain soil pH near ${soilPH} and apply with proper watering.`;
 
   const speakAdvice = () => {
     if (isSpeaking) {
@@ -103,17 +111,10 @@ export default function FertilizerPlanScreen() {
     }
   };
 
-  const getNPKColor = (level: string) => {
-    switch (level) {
-      case "High":
-        return "#4CAF50";
-      case "Medium":
-        return "#FF9800";
-      case "Low":
-        return "#F44336";
-      default:
-        return "#9E9E9E";
-    }
+  const getNPKColor = (value: number) => {
+    if (value >= 60) return "#4CAF50";
+    if (value >= 30) return "#FF9800";
+    return "#F44336";
   };
 
   return (
@@ -126,7 +127,6 @@ export default function FertilizerPlanScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <Animated.View
           style={[
             styles.header,
@@ -153,7 +153,6 @@ export default function FertilizerPlanScreen() {
           </View>
         </Animated.View>
 
-        {/* Summary Card */}
         <Animated.View
           style={[
             styles.summaryCard,
@@ -173,12 +172,17 @@ export default function FertilizerPlanScreen() {
             <View style={styles.summaryItem}>
               <Ionicons name="thermometer" size={20} color="#2E7D32" />
               <Text style={styles.summaryLabel}>Temp</Text>
-              <Text style={styles.summaryValue}>{temperature}</Text>
+              <Text style={styles.summaryValue}>{temperature}°C</Text>
             </View>
             <View style={styles.summaryItem}>
               <Ionicons name="water" size={20} color="#2E7D32" />
               <Text style={styles.summaryLabel}>Moisture</Text>
-              <Text style={styles.summaryValue}>{moisture}</Text>
+              <Text style={styles.summaryValue}>{moisture}%</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Ionicons name="cloud" size={20} color="#2E7D32" />
+              <Text style={styles.summaryLabel}>Humidity</Text>
+              <Text style={styles.summaryValue}>{humidity}%</Text>
             </View>
             <View style={styles.summaryItem}>
               <Ionicons name="beaker" size={20} color="#2E7D32" />
@@ -187,14 +191,13 @@ export default function FertilizerPlanScreen() {
             </View>
           </View>
 
-          {/* NPK Status */}
           <View style={styles.npkSection}>
             <Text style={styles.npkTitle}>Current NPK Levels</Text>
             <View style={styles.npkGrid}>
               {[
-                { label: "Nitrogen", value: N, color: getNPKColor(N) },
-                { label: "Phosphorus", value: P, color: getNPKColor(P) },
-                { label: "Potassium", value: K, color: getNPKColor(K) },
+                { label: "Nitrogen", value: Number(N) },
+                { label: "Phosphorus", value: Number(P) },
+                { label: "Potassium", value: Number(K) },
               ].map((item, index) => (
                 <View key={index} style={styles.npkItem}>
                   <Text style={styles.npkLabel}>{item.label}</Text>
@@ -204,19 +207,17 @@ export default function FertilizerPlanScreen() {
                         style={[
                           styles.npkBarFill,
                           {
-                            width:
-                              item.value === "High"
-                                ? "80%"
-                                : item.value === "Medium"
-                                ? "50%"
-                                : "25%",
-                            backgroundColor: item.color,
+                            width: `${Math.min(Math.max(item.value, 0), 100)}%`,
+                            backgroundColor: getNPKColor(item.value),
                           },
                         ]}
                       />
                     </View>
                     <Text
-                      style={[styles.npkValue, { color: item.color }]}
+                      style={[
+                        styles.npkValue,
+                        { color: getNPKColor(item.value) },
+                      ]}
                     >
                       {item.value}
                     </Text>
@@ -227,7 +228,6 @@ export default function FertilizerPlanScreen() {
           </View>
         </Animated.View>
 
-        {/* Recommendations Section */}
         <Animated.View
           style={[
             {
@@ -238,7 +238,7 @@ export default function FertilizerPlanScreen() {
         >
           <Text style={styles.sectionTitle}>Recommended Fertilizers</Text>
 
-          {recommendedFertilizers.map((item, index) => (
+          {recommendedFertilizers.map((item: any, index: number) => (
             <Animated.View
               key={index}
               style={[
@@ -256,19 +256,34 @@ export default function FertilizerPlanScreen() {
                 },
               ]}
             >
-              <View style={[styles.fertilizerIcon, { backgroundColor: item.color + "20" }]}>
-                <Ionicons name={item.icon} size={28} color={item.color} />
+              <View
+                style={[
+                  styles.fertilizerIcon,
+                  { backgroundColor: (item.color || "#4CAF50") + "20" },
+                ]}
+              >
+                <Ionicons
+                  name={(item.icon || "leaf") as any}
+                  size={28}
+                  color={item.color || "#4CAF50"}
+                />
               </View>
               <View style={styles.fertilizerContent}>
-                <Text style={styles.fertilizerType}>{item.type}</Text>
+                <Text style={styles.fertilizerType}>
+                  {item.type || item.name || "Recommended Fertilizer"}
+                </Text>
                 <View style={styles.fertilizerDetails}>
                   <View style={styles.detailItem}>
                     <Ionicons name="scale-outline" size={16} color="#4E6E4E" />
-                    <Text style={styles.detailText}>{item.dosage}</Text>
+                    <Text style={styles.detailText}>
+                      {item.dosage || item.amount || "As recommended"}
+                    </Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Ionicons name="time-outline" size={16} color="#4E6E4E" />
-                    <Text style={styles.detailText}>{item.timing}</Text>
+                    <Text style={styles.detailText}>
+                      {item.timing || item.application_time || "Morning"}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -276,7 +291,6 @@ export default function FertilizerPlanScreen() {
           ))}
         </Animated.View>
 
-        {/* AI Advice Card */}
         <Animated.View
           style={[
             styles.adviceCard,
@@ -317,7 +331,6 @@ export default function FertilizerPlanScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Application Tips */}
         <Animated.View
           style={[
             styles.tipsCard,
@@ -345,10 +358,21 @@ export default function FertilizerPlanScreen() {
           </View>
         </Animated.View>
 
-        {/* Extra Feature */}
         <TouchableOpacity
           style={styles.extraFeature}
-          onPress={() => router.push("/fertilizer-management/AnalyzerScreen")}
+          onPress={() =>
+            router.push({
+              pathname: "/fertilizer-management/AnalyzerScreen",
+              params: {
+                soil: soilType,
+                stage: plantStage,
+                N,
+                P,
+                K,
+                prediction: predictionRaw,
+              },
+            })
+          }
           activeOpacity={0.8}
         >
           <LinearGradient
@@ -370,414 +394,149 @@ export default function FertilizerPlanScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Action Buttons */}
-        {!fromHistory && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              activeOpacity={0.85}
-              onPress={() => {
-                // Save plan logic
-                router.push("/fertilizer-management/history");
-              }}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            activeOpacity={0.85}
+            onPress={() => router.push("/fertilizer-management")}
+          >
+            <LinearGradient
+              colors={["#2E7D32", "#1B5E20"]}
+              style={styles.actionButtonGradient}
             >
-              <LinearGradient
-                colors={["#2E7D32", "#1B5E20"]}
-                style={styles.actionButtonGradient}
-              >
-                <Ionicons name="checkmark-circle" size={22} color="#fff" />
-                <Text style={styles.actionButtonText}>Save Plan</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              <Ionicons name="checkmark-circle" size={22} color="#fff" />
+              <Text style={styles.actionButtonText}>Done</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.actionButton, styles.secondaryActionButton]}
-              activeOpacity={0.85}
-              onPress={() => router.push("/fertilizer-management")}
-            >
-              <Ionicons name="refresh" size={22} color="#2E7D32" />
-              <Text style={styles.secondaryActionButtonText}>Create New</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryActionButton]}
+            activeOpacity={0.85}
+            onPress={() => router.push("/fertilizer-management/select")}
+          >
+            <Ionicons name="refresh" size={22} color="#2E7D32" />
+            <Text style={styles.secondaryActionButtonText}>Create New</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-    gap: 12,
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 24, gap: 12 },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
+    justifyContent: "center", alignItems: "center", shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
-  headerContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+  headerContent: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   headerIconWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF",
+    justifyContent: "center", alignItems: "center", shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1B5E20",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: "#2E7D32",
-    fontWeight: "500",
-  },
+  headerTitle: { fontSize: 22, fontWeight: "800", color: "#1B5E20" },
+  headerSubtitle: { fontSize: 13, color: "#2E7D32", fontWeight: "500" },
   summaryCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    backgroundColor: "#FFFFFF", borderRadius: 24, padding: 20, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15,
+    shadowRadius: 16, elevation: 8,
   },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1B5E20",
-    marginBottom: 16,
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 20,
-  },
+  summaryTitle: { fontSize: 18, fontWeight: "700", color: "#1B5E20", marginBottom: 16 },
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 20 },
   summaryItem: {
-    flex: 1,
-    minWidth: "22%",
-    backgroundColor: "#F8F9FA",
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-    gap: 4,
+    flex: 1, minWidth: "22%", backgroundColor: "#F8F9FA", borderRadius: 12,
+    padding: 12, alignItems: "center", gap: 4,
   },
-  summaryLabel: {
-    fontSize: 11,
-    color: "#4E6E4E",
-    fontWeight: "600",
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#2E7D32",
-  },
-  npkSection: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-  },
-  npkTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1B5E20",
-    marginBottom: 12,
-  },
-  npkGrid: {
-    gap: 12,
-  },
-  npkItem: {
-    gap: 8,
-  },
-  npkLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#4E6E4E",
-  },
-  npkBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  npkBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  npkBarFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  npkValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    minWidth: 60,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1B5E20",
-    marginBottom: 16,
-  },
+  summaryLabel: { fontSize: 11, color: "#4E6E4E", fontWeight: "600" },
+  summaryValue: { fontSize: 14, fontWeight: "700", color: "#2E7D32" },
+  npkSection: { paddingTop: 16, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  npkTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 12 },
+  npkGrid: { gap: 12 },
+  npkItem: { gap: 8 },
+  npkLabel: { fontSize: 13, fontWeight: "600", color: "#4E6E4E" },
+  npkBarContainer: { flexDirection: "row", alignItems: "center", gap: 12 },
+  npkBar: { flex: 1, height: 8, backgroundColor: "#E0E0E0", borderRadius: 4, overflow: "hidden" },
+  npkBarFill: { height: "100%", borderRadius: 4 },
+  npkValue: { fontSize: 12, fontWeight: "700", minWidth: 60 },
+  sectionTitle: { fontSize: 20, fontWeight: "700", color: "#1B5E20", marginBottom: 16 },
   fertilizerCard: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    gap: 14,
+    flexDirection: "row", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16,
+    marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, gap: 14,
   },
   fertilizerIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center",
   },
-  fertilizerContent: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  fertilizerType: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1B5E20",
-    marginBottom: 6,
-  },
-  fertilizerDetails: {
-    gap: 4,
-  },
-  detailItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  detailText: {
-    fontSize: 13,
-    color: "#4E6E4E",
-    fontWeight: "500",
-  },
+  fertilizerContent: { flex: 1, justifyContent: "center" },
+  fertilizerType: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 6 },
+  fertilizerDetails: { gap: 4 },
+  detailItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  detailText: { fontSize: 13, color: "#4E6E4E", fontWeight: "500" },
   adviceCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 20,
-    marginTop: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    backgroundColor: "#FFFFFF", borderRadius: 24, padding: 20, marginTop: 20, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15,
+    shadowRadius: 16, elevation: 8,
   },
-  adviceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
-  },
+  adviceHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
   adviceIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#E8F5E9",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 48, height: 48, borderRadius: 24, backgroundColor: "#E8F5E9",
+    justifyContent: "center", alignItems: "center",
   },
-  adviceTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1B5E20",
-  },
-  adviceText: {
-    fontSize: 14,
-    color: "#4E6E4E",
-    lineHeight: 22,
-    marginBottom: 16,
-  },
+  adviceTitle: { fontSize: 18, fontWeight: "700", color: "#1B5E20" },
+  adviceText: { fontSize: 14, color: "#4E6E4E", lineHeight: 22, marginBottom: 16 },
   speakButton: {
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    borderRadius: 16, overflow: "hidden", shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   speakButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    gap: 10,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    paddingVertical: 14, paddingHorizontal: 20, gap: 10,
   },
-  speakButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  speakButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   tipsCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "#FFFFFF", borderRadius: 20, padding: 20, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1,
+    shadowRadius: 8, elevation: 4,
   },
-  tipsTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1B5E20",
-    marginBottom: 14,
-  },
-  tipsList: {
-    gap: 12,
-  },
-  tipItem: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
-  },
+  tipsTitle: { fontSize: 18, fontWeight: "700", color: "#1B5E20", marginBottom: 14 },
+  tipsList: { gap: 12 },
+  tipItem: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   tipNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#E8F5E9",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 24, height: 24, borderRadius: 12, backgroundColor: "#E8F5E9",
+    justifyContent: "center", alignItems: "center",
   },
-  tipNumberText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#2E7D32",
-  },
-  tipText: {
-    flex: 1,
-    fontSize: 14,
-    color: "#4E6E4E",
-    lineHeight: 20,
-  },
+  tipNumberText: { fontSize: 12, fontWeight: "700", color: "#2E7D32" },
+  tipText: { flex: 1, fontSize: 14, color: "#4E6E4E", lineHeight: 20 },
   extraFeature: {
-    marginBottom: 20,
-    borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 20, borderRadius: 20, overflow: "hidden", shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
   },
-  extraFeatureGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 18,
-    gap: 14,
-  },
+  extraFeatureGradient: { flexDirection: "row", alignItems: "center", padding: 18, gap: 14 },
   extraFeatureIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#E8F5E9",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 60, height: 60, borderRadius: 30, backgroundColor: "#E8F5E9",
+    justifyContent: "center", alignItems: "center",
   },
-  extraFeatureContent: {
-    flex: 1,
-  },
-  extraFeatureTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1B5E20",
-    marginBottom: 4,
-  },
-  extraFeatureDescription: {
-    fontSize: 13,
-    color: "#4E6E4E",
-    lineHeight: 18,
-  },
-  actionButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  extraFeatureContent: { flex: 1 },
+  extraFeatureTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 4 },
+  extraFeatureDescription: { fontSize: 13, color: "#4E6E4E", lineHeight: 18 },
+  actionButtons: { flexDirection: "row", gap: 12 },
   actionButton: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    flex: 1, borderRadius: 16, overflow: "hidden", shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   actionButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    gap: 8,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    paddingVertical: 16, gap: 8,
   },
-  actionButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  actionButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   secondaryActionButton: {
-    backgroundColor: "#FFFFFF",
-    shadowOpacity: 0.1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    gap: 8,
+    backgroundColor: "#FFFFFF", shadowOpacity: 0.1, flexDirection: "row",
+    alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 8,
   },
-  secondaryActionButtonText: {
-    color: "#2E7D32",
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  secondaryActionButtonText: { color: "#2E7D32", fontSize: 16, fontWeight: "700" },
 });
