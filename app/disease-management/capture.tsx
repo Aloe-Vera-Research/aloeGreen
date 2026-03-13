@@ -15,6 +15,8 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 export default function CaptureLeafScreen() {
+  // const API_URL = "http://192.168.1.4:8000/api/detect";
+  const API_URL = "http://192.168.1.4:8000/api/disease/detect";
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
@@ -132,6 +134,19 @@ export default function CaptureLeafScreen() {
       // router.push("/disease-management/analyzing");
     }
   };
+const analyzeImage = async () => {
+  if (!selectedImage) {
+    Alert.alert("No image", "Please capture or select an image first.");
+    return;
+  }
+
+  router.push({
+    pathname: "/disease-management/analyzing",
+    params: {
+      imageUri: selectedImage,
+    },
+  });
+};
 
   return (
     <>
@@ -245,7 +260,9 @@ export default function CaptureLeafScreen() {
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={styles.analyzeButton}
-                onPress={() => router.push("/disease-management/analyzing")}
+                // onPress={() => router.push("/disease-management/analyzing")}
+                onPress={analyzeImage}
+
               >
                 <LinearGradient
                   colors={["#2E7D32", "#1B5E20"]}

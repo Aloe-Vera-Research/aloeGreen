@@ -6,59 +6,31 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
-  Image,
   StatusBar,
-  Share,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
-type ResultData = {
-  diseaseName: string;
-  confidence: number;
-  category: "Healthy" | "Disease" | "Pest" | "Deficiency";
-  severity: "Healthy" | "Low" | "Medium" | "High" | "Critical";
-  description: string;
-  causes: string[];
-  treatment: string[];
-  prevention: string[];
-  spreadRisk: "None" | "Low" | "Medium" | "High";
-  imageUri: string;
-};
-
-export default function DiseaseResultScreen() {
-  const router = useRouter();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const [expanded, setExpanded] = useState<{ [key: string]: boolean }>({
-    causes: false,
-    treatment: true,
-    prevention: false,
-  });
-
-  // Mock result data - replace with actual data from route params or state
-  const result: ResultData = {
-    diseaseName: "Aloe Rust (Fungal)",
-    confidence: 92.5,
+// Disease data configuration
+const diseaseData = {
+  "Aloe Rust": {
     category: "Disease",
     severity: "High",
-    description:
-      "Aloe rust is a fungal disease caused by Phakopsora pachyrhizi that appears as reddish-brown or black spots on Aloe Vera leaves. It thrives in humid conditions and can spread rapidly if left untreated, potentially affecting entire plantations.",
+    description: "Aloe rust is a fungal disease caused by Phakopsora pachyrhizi that appears as reddish-brown or black spots on Aloe Vera leaves. It thrives in humid conditions and can spread rapidly if left untreated.",
     causes: [
       "High moisture and humidity levels (>80%)",
       "Poor air circulation around plants",
       "Fungal spores from infected nearby plants",
       "Overhead watering that keeps leaves wet",
-      "Dense planting without proper spacing",
+      "Dense planting without proper spacing"
     ],
     treatment: [
       "Remove and destroy all infected leaves immediately",
       "Apply copper-based fungicide spray (2-3 times weekly)",
       "Isolate infected plants from healthy ones",
       "Improve drainage around affected plants",
-      "Apply neem oil solution as organic alternative",
+      "Apply neem oil solution as organic alternative"
     ],
     prevention: [
       "Ensure proper spacing between plants (30-45cm)",
@@ -66,11 +38,145 @@ export default function DiseaseResultScreen() {
       "Maintain good air circulation",
       "Regular inspection of leaves for early signs",
       "Apply preventive fungicide during humid seasons",
-      "Remove dead or dying leaves promptly",
+      "Remove dead or dying leaves promptly"
     ],
-    spreadRisk: "High",
-    imageUri: "https://unsplash.com/photos/a-close-up-of-a-green-plant-with-spots-on-it-FayaAwrIR8c",
+    spreadRisk: "High"
+  },
+  "Anthracnose": {
+    category: "Disease",
+    severity: "High",
+    description: "Anthracnose is a fungal disease caused by Colletotrichum species that creates dark, sunken lesions on aloe leaves. It can cause significant damage during warm, wet conditions and may lead to complete leaf collapse.",
+    causes: [
+      "Warm, humid weather conditions",
+      "Water splashing on leaves spreading spores",
+      "Wounded or damaged leaf tissue",
+      "Poor sanitation practices",
+      "Infected plant debris left near plants"
+    ],
+    treatment: [
+      "Prune and destroy infected plant parts immediately",
+      "Apply fungicide containing chlorothalonil or mancozeb",
+      "Remove debris and dead plant material around plants",
+      "Reduce watering frequency temporarily",
+      "Treat with copper-based fungicide every 7-10 days"
+    ],
+    prevention: [
+      "Water early in the day so leaves dry quickly",
+      "Space plants adequately for air flow",
+      "Remove and destroy infected leaves promptly",
+      "Disinfect pruning tools between plants",
+      "Apply preventive fungicide before rainy season",
+      "Avoid working with plants when wet"
+    ],
+    spreadRisk: "High"
+  },
+  "Healthy": {
+    category: "Healthy",
+    severity: "Healthy",
+    description: "Your aloe plant appears to be in excellent health! The leaves show no signs of disease, pest damage, or nutritional deficiencies. Continue your current care routine to maintain plant health.",
+    causes: [],
+    treatment: [
+      "Continue regular watering schedule",
+      "Maintain current fertilization routine",
+      "Keep monitoring plant health weekly",
+      "Ensure adequate sunlight exposure",
+      "No treatment needed - plant is healthy"
+    ],
+    prevention: [
+      "Water deeply but infrequently (every 2-3 weeks)",
+      "Provide 6-8 hours of indirect sunlight daily",
+      "Use well-draining soil mix",
+      "Fertilize with balanced fertilizer quarterly",
+      "Inspect leaves regularly for early problem detection",
+      "Maintain good air circulation around plants"
+    ],
+    spreadRisk: "None"
+  },
+  "Leaf Spot": {
+    category: "Disease",
+    severity: "Medium",
+    description: "Leaf spot is a bacterial or fungal infection that causes circular brown or black spots on aloe leaves. While not immediately life-threatening, it can weaken plants and spread if left untreated.",
+    causes: [
+      "Bacterial infection from contaminated water",
+      "Fungal spores in humid conditions",
+      "Physical damage to leaf surface",
+      "Poor air circulation",
+      "Overhead watering hitting leaves"
+    ],
+    treatment: [
+      "Remove affected leaves or cut out spotted sections",
+      "Apply bactericide or fungicide depending on cause",
+      "Improve air circulation around plant",
+      "Reduce watering frequency",
+      "Spray with neem oil solution weekly",
+      "Ensure soil drains properly"
+    ],
+    prevention: [
+      "Water at soil level, not on leaves",
+      "Provide adequate spacing between plants",
+      "Use sterile tools for pruning",
+      "Avoid overhead irrigation",
+      "Remove dead or dying foliage promptly",
+      "Apply preventive copper spray monthly"
+    ],
+    spreadRisk: "Medium"
+  },
+  "Sunburn": {
+    category: "Environmental",
+    severity: "Medium",
+    description: "Sunburn occurs when aloe plants are exposed to intense direct sunlight, especially after being in shade. It appears as brown, reddish, or white patches on leaves and can permanently scar the plant.",
+    causes: [
+      "Sudden exposure to intense direct sunlight",
+      "Moving plant from shade to full sun quickly",
+      "Insufficient acclimatization period",
+      "Reflection from nearby surfaces intensifying sun",
+      "Summer heat combined with direct afternoon sun"
+    ],
+    treatment: [
+      "Move plant to location with filtered sunlight",
+      "Provide shade during hottest part of day (12-4pm)",
+      "Do not remove sunburned leaves (they still photosynthesize)",
+      "Increase watering slightly to help plant recover",
+      "Apply shade cloth (30-50% shade) temporarily",
+      "Allow plant to gradually acclimate to brighter light"
+    ],
+    prevention: [
+      "Gradually introduce plant to brighter light over 2-3 weeks",
+      "Provide afternoon shade in hot climates",
+      "Use shade cloth during peak summer months",
+      "Place plant where it gets morning sun, afternoon shade",
+      "Monitor leaf color - pale green indicates too much sun",
+      "Keep well-watered during hot weather"
+    ],
+    spreadRisk: "None"
+  }
+};
+
+export default function ResultScreen() {
+  const router = useRouter();
+  const { disease, confidence } = useLocalSearchParams();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  
+  const [expanded, setExpanded] = useState({
+    causes: false,
+    treatment: true,
+    prevention: false
+  });
+const diseaseKey = disease as keyof typeof diseaseData;
+  // Get disease info, default to a generic disease if not found
+  const diseaseInfo = diseaseData[diseaseKey] || {
+    category: "Unknown",
+    severity: "Unknown",
+    description: "Disease information not available.",
+    causes: [],
+    treatment: ["Consult with an agricultural expert"],
+    prevention: ["Regular monitoring recommended"],
+    spreadRisk: "Unknown"
   };
+
+  const confidenceNum = Number(confidence) * 100;
 
   useEffect(() => {
     Animated.parallel([
@@ -96,67 +202,42 @@ export default function DiseaseResultScreen() {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case "Healthy":
-        return "#2E7D32";
-      case "Low":
-        return "#FBC02D";
-      case "Medium":
-        return "#F57C00";
-      case "High":
-        return "#E64A19";
-      case "Critical":
-        return "#C62828";
-      default:
-        return "#757575";
+      case "Healthy": return "#2E7D32";
+      case "Low": return "#FBC02D";
+      case "Medium": return "#F57C00";
+      case "High": return "#E64A19";
+      case "Critical": return "#C62828";
+      default: return "#757575";
     }
   };
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case "Healthy":
-        return "checkmark-circle" as const;
-      case "Low":
-        return "alert-circle-outline" as const;
-      case "Medium":
-        return "alert-circle" as const;
-      case "High":
-        return "warning" as const;
-      case "Critical":
-        return "alert" as const;
-      default:
-        return "help-circle" as const;
+      case "Healthy": return "checkmark-circle" as const;
+      case "Low": return "alert-circle-outline" as const;
+      case "Medium": return "alert-circle" as const;
+      case "High": return "warning" as const;
+      case "Critical": return "alert" as const;
+      default: return "help-circle" as const;
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case "None":
-        return "#2E7D32";
-      case "Low":
-        return "#FBC02D";
-      case "Medium":
-        return "#F57C00";
-      case "High":
-        return "#D32F2F";
-      default:
-        return "#757575";
+      case "None": return "#2E7D32";
+      case "Low": return "#FBC02D";
+      case "Medium": return "#F57C00";
+      case "High": return "#D32F2F";
+      default: return "#757575";
     }
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: `Disease Detection Result:\n${result.diseaseName}\nConfidence: ${result.confidence}%\nSeverity: ${result.severity}\n\nDetected using Aloe Vera Farm Manager`,
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const toggleSection = (section: string) => {
-    setExpanded((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
-
+  const toggleSection = (section: "causes" | "treatment" | "prevention") => {
+  setExpanded((prev) => ({
+    ...prev,
+    [section]: !prev[section],
+  }));
+};
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#E8F5E9" />
@@ -168,7 +249,7 @@ export default function DiseaseResultScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header with Image */}
+          {/* Header */}
           <Animated.View
             style={[
               styles.headerSection,
@@ -178,42 +259,16 @@ export default function DiseaseResultScreen() {
               },
             ]}
           >
-            <View style={styles.headerTop}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => router.back()}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="arrow-back" size={24} color="#1B5E20" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.shareButton}
-                onPress={handleShare}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="share-social" size={22} color="#1B5E20" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.imageContainer}>
-              <Image source={{ uri: result.imageUri }} style={styles.resultImage} />
-              <View
-                style={[
-                  styles.severityOverlay,
-                  { backgroundColor: getSeverityColor(result.severity) },
-                ]}
-              >
-                <Ionicons
-                  name={getSeverityIcon(result.severity)}
-                  size={24}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.severityText}>{result.severity}</Text>
-              </View>
-            </View>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={24} color="#1B5E20" />
+            </TouchableOpacity>
           </Animated.View>
 
-          {/* Result Header Card */}
+          {/* Result Card */}
           <Animated.View
             style={[
               styles.resultCard,
@@ -225,15 +280,15 @@ export default function DiseaseResultScreen() {
           >
             <View style={styles.resultHeader}>
               <View style={styles.resultHeaderLeft}>
-                <Text style={styles.diseaseName}>{result.diseaseName}</Text>
-                <Text style={styles.category}>{result.category}</Text>
+                <Text style={styles.diseaseName}>{disease}</Text>
+                <Text style={styles.category}>{diseaseInfo.category}</Text>
               </View>
               <View style={styles.confidenceBadge}>
                 <Ionicons name="analytics" size={20} color="#2E7D32" />
                 <View>
                   <Text style={styles.confidenceLabel}>Confidence</Text>
                   <Text style={styles.confidenceValue}>
-                    {result.confidence.toFixed(1)}%
+                    {confidenceNum.toFixed(1)}%
                   </Text>
                 </View>
               </View>
@@ -242,18 +297,18 @@ export default function DiseaseResultScreen() {
             {/* Stats Row */}
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <Ionicons name="speedometer" size={18} color={getSeverityColor(result.severity)} />
+                <Ionicons name="speedometer" size={18} color={getSeverityColor(diseaseInfo.severity)} />
                 <Text style={styles.statLabel}>Severity</Text>
-                <Text style={[styles.statValue, { color: getSeverityColor(result.severity) }]}>
-                  {result.severity}
+                <Text style={[styles.statValue, { color: getSeverityColor(diseaseInfo.severity) }]}>
+                  {diseaseInfo.severity}
                 </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Ionicons name="warning" size={18} color={getRiskColor(result.spreadRisk)} />
+                <Ionicons name="warning" size={18} color={getRiskColor(diseaseInfo.spreadRisk)} />
                 <Text style={styles.statLabel}>Spread Risk</Text>
-                <Text style={[styles.statValue, { color: getRiskColor(result.spreadRisk) }]}>
-                  {result.spreadRisk}
+                <Text style={[styles.statValue, { color: getRiskColor(diseaseInfo.spreadRisk) }]}>
+                  {diseaseInfo.spreadRisk}
                 </Text>
               </View>
             </View>
@@ -273,7 +328,7 @@ export default function DiseaseResultScreen() {
               <Ionicons name="information-circle" size={24} color="#2E7D32" />
               <Text style={styles.cardTitle}>About This Condition</Text>
             </View>
-            <Text style={styles.description}>{result.description}</Text>
+            <Text style={styles.description}>{diseaseInfo.description}</Text>
           </Animated.View>
 
           {/* Treatment Card (Expanded by default) */}
@@ -281,13 +336,11 @@ export default function DiseaseResultScreen() {
             style={[
               styles.card,
               styles.treatmentCard,
-              {
-                opacity: fadeAnim,
-              },
+              { opacity: fadeAnim },
             ]}
           >
             <TouchableOpacity
-              style={styles.cardHeader}
+              style={styles.cardHeaderButton}
               onPress={() => toggleSection("treatment")}
               activeOpacity={0.7}
             >
@@ -305,7 +358,7 @@ export default function DiseaseResultScreen() {
             </TouchableOpacity>
             {expanded.treatment && (
               <View style={styles.cardContent}>
-                {result.treatment.map((item, index) => (
+                {diseaseInfo.treatment.map((item, index) => (
                   <View key={index} style={styles.listItem}>
                     <View style={styles.bulletWhite}>
                       <Text style={styles.bulletNumber}>{index + 1}</Text>
@@ -318,54 +371,44 @@ export default function DiseaseResultScreen() {
           </Animated.View>
 
           {/* Causes Card (Collapsible) */}
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                opacity: fadeAnim,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.cardHeader}
-              onPress={() => toggleSection("causes")}
-              activeOpacity={0.7}
+          {diseaseInfo.causes.length > 0 && (
+            <Animated.View
+              style={[styles.card, { opacity: fadeAnim }]}
             >
-              <View style={styles.cardHeaderLeft}>
-                <Ionicons name="search" size={24} color="#2E7D32" />
-                <Text style={styles.cardTitle}>Possible Causes</Text>
-              </View>
-              <Ionicons
-                name={expanded.causes ? "chevron-up" : "chevron-down"}
-                size={24}
-                color="#2E7D32"
-              />
-            </TouchableOpacity>
-            {expanded.causes && (
-              <View style={styles.cardContent}>
-                {result.causes.map((item, index) => (
-                  <View key={index} style={styles.listItem}>
-                    <View style={styles.bullet}>
+              <TouchableOpacity
+                style={styles.cardHeaderButton}
+                onPress={() => toggleSection("causes")}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardHeaderLeft}>
+                  <Ionicons name="search" size={24} color="#2E7D32" />
+                  <Text style={styles.cardTitle}>Possible Causes</Text>
+                </View>
+                <Ionicons
+                  name={expanded.causes ? "chevron-up" : "chevron-down"}
+                  size={24}
+                  color="#2E7D32"
+                />
+              </TouchableOpacity>
+              {expanded.causes && (
+                <View style={styles.cardContent}>
+                  {diseaseInfo.causes.map((item, index) => (
+                    <View key={index} style={styles.listItem}>
                       <Ionicons name="alert-circle" size={16} color="#F57C00" />
+                      <Text style={styles.listText}>{item}</Text>
                     </View>
-                    <Text style={styles.listText}>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </Animated.View>
+                  ))}
+                </View>
+              )}
+            </Animated.View>
+          )}
 
           {/* Prevention Card (Collapsible) */}
           <Animated.View
-            style={[
-              styles.card,
-              {
-                opacity: fadeAnim,
-              },
-            ]}
+            style={[styles.card, { opacity: fadeAnim }]}
           >
             <TouchableOpacity
-              style={styles.cardHeader}
+              style={styles.cardHeaderButton}
               onPress={() => toggleSection("prevention")}
               activeOpacity={0.7}
             >
@@ -381,11 +424,9 @@ export default function DiseaseResultScreen() {
             </TouchableOpacity>
             {expanded.prevention && (
               <View style={styles.cardContent}>
-                {result.prevention.map((item, index) => (
+                {diseaseInfo.prevention.map((item, index) => (
                   <View key={index} style={styles.listItem}>
-                    <View style={styles.bullet}>
-                      <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
-                    </View>
+                    <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
                     <Text style={styles.listText}>{item}</Text>
                   </View>
                 ))}
@@ -393,40 +434,32 @@ export default function DiseaseResultScreen() {
             )}
           </Animated.View>
 
-          {/* Community Alert Card */}
-          {result.spreadRisk !== "None" && (
+          {/* Community Alert - Only show for high spread risk */}
+          {diseaseInfo.spreadRisk === "High" && (
             <Animated.View
-              style={[
-                styles.card,
-                styles.alertCard,
-                {
-                  opacity: fadeAnim,
-                },
-              ]}
+              style={[styles.card, styles.alertCard, { opacity: fadeAnim }]}
             >
               <View style={styles.alertIconWrapper}>
                 <Ionicons name="people" size={32} color="#2E7D32" />
               </View>
               <Text style={styles.alertTitle}>Community Disease Alert</Text>
               <Text style={styles.alertText}>
-                This disease has a {result.spreadRisk.toLowerCase()} spread risk and can
-                affect nearby farms. Notify other farmers to take preventive measures.
+                This disease has a high spread risk and can affect nearby farms. Consider notifying other farmers to take preventive measures.
               </Text>
               <TouchableOpacity
-  style={styles.alertButton}
-  activeOpacity={0.85}
-  onPress={() => {
-    router.push({
-      pathname: "/disease-management/community-alert",
-      params: {
-        disease: result.diseaseName,
-        severity: result.severity,
-        spreadRisk: result.spreadRisk,
-      },
-    });
-  }}
->
-
+                style={styles.alertButton}
+                activeOpacity={0.85}
+                onPress={() => {
+                  router.push({
+                    pathname: "/disease-management/community-alert",
+                    params: {
+                      disease: disease,
+                      severity: diseaseInfo.severity,
+                      spreadRisk: diseaseInfo.spreadRisk,
+                    },
+                  });
+                }}
+              >
                 <LinearGradient
                   colors={["#2E7D32", "#1B5E20"]}
                   start={{ x: 0, y: 0 }}
@@ -489,15 +522,10 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: 50,
     paddingBottom: 40,
+    paddingHorizontal: 20,
   },
   headerSection: {
-    paddingHorizontal: 20,
     marginBottom: 20,
-  },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
   },
   backButton: {
     width: 44,
@@ -512,60 +540,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  shareButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  imageContainer: {
-    width: "100%",
-    height: 240,
-    borderRadius: 20,
-    overflow: "hidden",
-    position: "relative",
-    borderWidth: 3,
-    borderColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  resultImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  severityOverlay: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    gap: 6,
-  },
-  severityText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
   resultCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 20,
-    marginHorizontal: 20,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -643,7 +621,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 18,
-    marginHorizontal: 20,
     marginBottom: 14,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -655,6 +632,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#2E7D32",
   },
   cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  cardHeaderButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -689,9 +671,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 10,
   },
-  bullet: {
-    marginTop: 2,
-  },
   bulletWhite: {
     width: 24,
     height: 24,
@@ -699,7 +678,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 0,
   },
   bulletNumber: {
     fontSize: 12,
@@ -731,6 +709,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
+    alignSelf: "center",
     shadowColor: "#2E7D32",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -742,12 +721,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1B5E20",
     marginBottom: 8,
+    textAlign: "center",
   },
   alertText: {
     fontSize: 14,
     color: "#4E6E4E",
     lineHeight: 22,
     marginBottom: 16,
+    textAlign: "center",
   },
   alertButton: {
     borderRadius: 16,
@@ -769,12 +750,10 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
-    
   },
   actionContainer: {
     flexDirection: "row",
     gap: 12,
-    paddingHorizontal: 20,
     marginTop: 10,
   },
   secondaryActionButton: {

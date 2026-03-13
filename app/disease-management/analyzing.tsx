@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 const { width } = Dimensions.get("window");
 
@@ -24,6 +24,7 @@ type AnalysisStep = {
 
 export default function AnalyzingScreen() {
   const router = useRouter();
+  const { imageUri } = useLocalSearchParams(); // Get the image from params
   const scrollViewRef = useRef<ScrollView>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -33,6 +34,7 @@ export default function AnalyzingScreen() {
 
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [steps, setSteps] = useState<AnalysisStep[]>([
     { id: 1, title: "Image preprocessing", icon: "image-outline", status: "pending" },
     { id: 2, title: "Feature extraction", icon: "scan-outline", status: "pending" },
@@ -40,10 +42,13 @@ export default function AnalyzingScreen() {
     { id: 4, title: "Generating report", icon: "document-text-outline", status: "pending" },
   ]);
 
-  // Mock image - replace with actual captured image from route params
-  const imageUri = "https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797?w=400";
+  // Use the passed image or fallback to a default
+  const displayImage = imageUri || "https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797?w=400";
 
   useEffect(() => {
+    // Start API call
+    analyzeImage();
+
     // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -85,8 +90,8 @@ export default function AnalyzingScreen() {
       })
     ).start();
 
-    // Simulate analysis progress - increased duration for better visibility
-    const totalDuration = 8000; // 8 seconds for better step visibility
+    // Simulate analysis progress
+    const totalDuration = 6000; // 6 seconds
     const stepDuration = totalDuration / steps.length;
     
     const progressInterval = setInterval(() => {
@@ -113,10 +118,9 @@ export default function AnalyzingScreen() {
 
         // Auto-scroll to current step
         if (scrollViewRef.current && index > 0) {
-          // Scroll with smooth animation after a brief delay
           setTimeout(() => {
             scrollViewRef.current?.scrollTo({
-              y: 300 + (index * 70), // Adjust based on your layout
+              y: 300 + (index * 70),
               animated: true,
             });
           }, 100);
@@ -124,16 +128,59 @@ export default function AnalyzingScreen() {
       }, index * stepDuration);
     });
 
-    // Navigate to result after completion
-    const timer = setTimeout(() => {
-      router.replace("/disease-management/result");
-    }, totalDuration + 500);
-
     return () => {
-      clearTimeout(timer);
       clearInterval(progressInterval);
     };
   }, []);
+
+  const analyzeImage = async () => {
+    const API_URL = "http://192.168.1.4:8000/api/disease/detect";
+    
+    try {
+      const formData = new FormData();
+      formData.append("file", {
+        uri: imageUri as string,
+        name: "aloe_leaf.jpg",
+        type: "image/jpeg",
+      } as any);
+
+      const response = await fetch(API_URL, {
+  method: "POST",
+  body: formData,
+});
+
+      if (!response.ok) {
+        throw new Error("Server error");
+      }
+
+      const result = await response.json();
+      setAnalysisResult(result);
+
+      // Wait for animation to complete, then navigate
+      setTimeout(() => {
+        router.replace({
+          pathname: "/disease-management/result",
+          params: {
+            disease: result.disease,
+            confidence: result.confidence,
+          },
+        });
+      }, 6500); // 6.5 seconds total (6s animation + 0.5s buffer)
+
+    } catch (error) {
+      console.error(error);
+      // On error, still navigate but with error state
+      setTimeout(() => {
+        router.replace({
+          pathname: "/disease-management/result",
+          params: {
+            disease: "Analysis Error",
+            confidence: 0,
+          },
+        });
+      }, 6500);
+    }
+  };
 
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -175,7 +222,10 @@ export default function AnalyzingScreen() {
             {/* Image Preview with Scan Effect */}
             <View style={styles.imageSection}>
               <View style={styles.imageWrapper}>
-                <Image source={{ uri: imageUri }} style={styles.leafImage} />
+                <Image 
+                  source={{ uri: displayImage as string }} 
+                  style={styles.leafImage} 
+                />
                 
                 {/* Scan line overlay */}
                 <Animated.View
