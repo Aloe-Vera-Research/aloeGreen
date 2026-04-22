@@ -8,12 +8,12 @@ import {
   Dimensions,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from "../../context/LanguageContext";
 
 const { width } = Dimensions.get("window");
 
@@ -23,7 +23,6 @@ const soilTextureMap: Record<string, number> = {
   Clay: 3,
 };
 
-// Temporary default environment values until IoT/weather integration
 const DEFAULT_ENVIRONMENT = {
   humidity_pct: 70,
   irrigation_mm: 4,
@@ -36,6 +35,8 @@ const DEFAULT_ENVIRONMENT = {
 
 export default function YieldDashboard() {
   const router = useRouter();
+  const { t } = useLanguage();
+
   const [plantCount, setPlantCount] = useState<number>(0);
   const [plantAgeMonths, setPlantAgeMonths] = useState<number>(0);
   const [perPlantYield, setPerPlantYield] = useState<number>(0);
@@ -49,8 +50,9 @@ export default function YieldDashboard() {
   useFocusEffect(
     useCallback(() => {
       loadFarmSetup();
-    }, []),
+    }, [])
   );
+
   const totalYieldKg = ((perPlantYield * plantCount) / 1000).toFixed(1);
   const modelConfidence = 0.89;
 
@@ -82,7 +84,7 @@ export default function YieldDashboard() {
         setLastUpdated(
           data.timestamp
             ? new Date(data.timestamp).toLocaleString()
-            : new Date().toLocaleString(),
+            : new Date().toLocaleString()
         );
       } else {
         console.log("Prediction failed:", data);
@@ -104,8 +106,6 @@ export default function YieldDashboard() {
   };
 
   useEffect(() => {
-    
-
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -125,7 +125,7 @@ export default function YieldDashboard() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, scaleAnim]);
 
   const loadFarmSetup = async () => {
     try {
@@ -150,36 +150,40 @@ export default function YieldDashboard() {
     }
   };
 
-  const quickActions = [
-    {
-      title: "Environment",
-      icon: "leaf",
-      route: "/yield/environment",
-      color: "#4CAF50",
-      bgColor: "#E8F5E9",
-    },
-    {
-      title: "Scenarios",
-      icon: "flask",
-      route: "/yield/scenario",
-      color: "#2196F3",
-      bgColor: "#E3F2FD",
-    },
-    {
-      title: "Forecast",
-      icon: "trending-up",
-      route: "/yield/history",
-      color: "#FF9800",
-      bgColor: "#FFF3E0",
-    },
-    // {
-    //   title: "Alerts",
-    //   icon: "notifications",
-    //   route: "/yield/alert",
-    //   color: "#F44336",
-    //   bgColor: "#FFEBEE",
-    // },
-  ];
+  const quickActions = useMemo(
+    () => [
+      {
+        title: t("environment"),
+        icon: "leaf",
+        route: "/yield/environment",
+        color: "#4CAF50",
+        bgColor: "#E8F5E9",
+      },
+      {
+        title: t("scenarios"),
+        icon: "flask",
+        route: "/yield/scenario",
+        color: "#2196F3",
+        bgColor: "#E3F2FD",
+      },
+      {
+        title: t("forecast"),
+        icon: "trending-up",
+        route: "/yield/history",
+        color: "#FF9800",
+        bgColor: "#FFF3E0",
+      },
+    ],
+    [t]
+  );
+
+  const insights = [
+  `${t("yourPlantsAre")} ${plantAgeMonths} ${t("monthsOldLower")} - ${t("optimalHarvestApproaching")}`,
+  parseFloat(totalYieldKg) > 50
+    ? t("insightYieldAboveAverage")
+    : t("insightYieldWithinAverage"),
+  `${t("modelConfidenceAt")} ${(modelConfidence * 100).toFixed(0)}% - ${t("predictionsReliable")}`,
+];
 
   return (
     <LinearGradient
@@ -191,7 +195,6 @@ export default function YieldDashboard() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <Animated.View
           style={[
             styles.header,
@@ -207,24 +210,24 @@ export default function YieldDashboard() {
               />
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>Yield Dashboard</Text>
+              <Text style={styles.title}>{t("yieldDashboard")}</Text>
               <Text style={styles.subtitle}>
-                Real-time estimation & insights
+                {t("realTimeEstimationInsights")}
               </Text>
             </View>
           </View>
 
-          {/* Status Banner */}
           <View style={styles.statusBanner}>
             <View style={styles.statusIndicator}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Crop Status: Healthy</Text>
+              <Text style={styles.statusText}>{t("cropStatusHealthy")}</Text>
             </View>
-            <Text style={styles.lastUpdated}>{lastUpdated}</Text>
+            <Text style={styles.lastUpdated}>
+              {lastUpdated === "--" ? "--" : lastUpdated}
+            </Text>
           </View>
         </Animated.View>
 
-        {/* Main Yield Card */}
         <Animated.View
           style={[
             styles.mainCard,
@@ -244,7 +247,7 @@ export default function YieldDashboard() {
               <View style={styles.mainCardIconWrapper}>
                 <Ionicons name="leaf" size={28} color="#FFFFFF" />
               </View>
-              <Text style={styles.mainLabel}>Per Plant Yield</Text>
+              <Text style={styles.mainLabel}>{t("perPlantYield")}</Text>
             </View>
             <Text style={styles.mainValue}>{perPlantYield.toFixed(2)}g</Text>
             <View style={styles.mainCardFooter}>
@@ -254,13 +257,14 @@ export default function YieldDashboard() {
                 color="rgba(255,255,255,0.8)"
               />
               <Text style={styles.mainNote}>
-                Based on current environmental conditions
+                {loadingPrediction
+                  ? t("loadingPrediction")
+                  : t("basedOnCurrentEnvironmentalConditions")}
               </Text>
             </View>
           </LinearGradient>
         </Animated.View>
 
-        {/* Stats Grid */}
         <Animated.View
           style={[
             styles.statsGrid,
@@ -271,18 +275,18 @@ export default function YieldDashboard() {
             <View style={[styles.statIcon, { backgroundColor: "#E8F5E9" }]}>
               <MaterialCommunityIcons name="sprout" size={24} color="#4CAF50" />
             </View>
-            <Text style={styles.statLabel}>Plant Count</Text>
+            <Text style={styles.statLabel}>{t("plantCount")}</Text>
             <Text style={styles.statValue}>{plantCount}</Text>
-            <Text style={styles.statSubtext}>Active plants</Text>
+            <Text style={styles.statSubtext}>{t("activePlants")}</Text>
           </View>
 
           <View style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: "#FFF3E0" }]}>
               <Ionicons name="calendar" size={24} color="#FF9800" />
             </View>
-            <Text style={styles.statLabel}>Plant Age</Text>
+            <Text style={styles.statLabel}>{t("plantAge")}</Text>
             <Text style={styles.statValue}>{plantAgeMonths}</Text>
-            <Text style={styles.statSubtext}>Months old</Text>
+            <Text style={styles.statSubtext}>{t("monthsOld")}</Text>
           </View>
 
           <View style={styles.statCard}>
@@ -293,15 +297,14 @@ export default function YieldDashboard() {
                 color="#2196F3"
               />
             </View>
-            <Text style={styles.statLabel}>Accuracy</Text>
+            <Text style={styles.statLabel}>{t("accuracy")}</Text>
             <Text style={styles.statValue}>
               {(modelConfidence * 100).toFixed(0)}%
             </Text>
-            <Text style={styles.statSubtext}>Model confidence</Text>
+            <Text style={styles.statSubtext}>{t("modelConfidence")}</Text>
           </View>
         </Animated.View>
 
-        {/* Total Yield Card */}
         <Animated.View
           style={[
             styles.totalCard,
@@ -315,17 +318,17 @@ export default function YieldDashboard() {
             <View style={styles.totalIconWrapper}>
               <MaterialCommunityIcons name="scale" size={24} color="#2E7D32" />
             </View>
-            <Text style={styles.totalLabel}>Estimated Total Yield</Text>
+            <Text style={styles.totalLabel}>{t("estimatedTotalYield")}</Text>
           </View>
           <Text style={styles.totalValue}>{totalYieldKg} kg</Text>
           {plantCount > 0 && (
-            <View style={styles.totalFooter}>
-              <Ionicons name="calculator" size={14} color="#4E6E4E" />
-              <Text style={styles.totalNote}>
-                Calculated using {plantCount} plants
-              </Text>
-            </View>
-          )}
+  <View style={styles.totalFooter}>
+    <Ionicons name="calculator" size={14} color="#4E6E4E" />
+    <Text style={styles.totalNote}>
+      {t("calculatedUsing")} {plantCount} {t("plants")}
+    </Text>
+  </View>
+)}
           <View style={styles.progressBar}>
             <View
               style={[
@@ -338,34 +341,33 @@ export default function YieldDashboard() {
           </View>
         </Animated.View>
 
-        {/* Quick Actions */}
         <Animated.View
           style={[
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>{t("quickActions")}</Text>
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action, index) => (
               <Animated.View
-  key={index}
-  style={[
-    {
-      opacity: fadeAnim,
-      transform: [
-        {
-          scale: fadeAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.8, 1],
-          }),
-        },
-      ],
-    },
-    quickActions.length % 2 !== 0 && index === quickActions.length - 1
-      ? styles.quickActionWrapperFull
-      : null,
-  ]}
->
+                key={index}
+                style={[
+                  {
+                    opacity: fadeAnim,
+                    transform: [
+                      {
+                        scale: fadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.8, 1],
+                        }),
+                      },
+                    ],
+                  },
+                  quickActions.length % 2 !== 0 && index === quickActions.length - 1
+                    ? styles.quickActionWrapperFull
+                    : null,
+                ]}
+              >
                 <TouchableOpacity
                   style={[
                     styles.quickActionCard,
@@ -401,7 +403,6 @@ export default function YieldDashboard() {
           </View>
         </Animated.View>
 
-        {/* Edit Farm Setup Button */}
         <TouchableOpacity
           onPress={() => router.push("/yield/farm-setup")}
           style={styles.editButton}
@@ -416,9 +417,9 @@ export default function YieldDashboard() {
                 <Ionicons name="settings" size={20} color="#2E7D32" />
               </View>
               <View style={styles.editTextContainer}>
-                <Text style={styles.editButtonTitle}>Farm Setup</Text>
+                <Text style={styles.editButtonTitle}>{t("farmSetup")}</Text>
                 <Text style={styles.editButtonSubtext}>
-                  Update plants, area & date
+                  {t("updatePlantsAreaDate")}
                 </Text>
               </View>
             </View>
@@ -426,7 +427,6 @@ export default function YieldDashboard() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Insights Card */}
         <View style={styles.insightsCard}>
           <View style={styles.insightsHeader}>
             <View style={styles.insightsIconWrapper}>
@@ -436,31 +436,15 @@ export default function YieldDashboard() {
                 color="#FF9800"
               />
             </View>
-            <Text style={styles.insightsTitle}>Insights</Text>
+            <Text style={styles.insightsTitle}>{t("insights")}</Text>
           </View>
           <View style={styles.insightsList}>
-            <View style={styles.insightItem}>
-              <View style={styles.insightDot} />
-              <Text style={styles.insightText}>
-                Your plants are {plantAgeMonths} months old - optimal harvest
-                time is approaching
-              </Text>
-            </View>
-            <View style={styles.insightItem}>
-              <View style={styles.insightDot} />
-              <Text style={styles.insightText}>
-                Expected yield is{" "}
-                {parseFloat(totalYieldKg) > 50 ? "above" : "within"} average
-                range
-              </Text>
-            </View>
-            <View style={styles.insightItem}>
-              <View style={styles.insightDot} />
-              <Text style={styles.insightText}>
-                Model confidence at {(modelConfidence * 100).toFixed(0)}% -
-                predictions are reliable
-              </Text>
-            </View>
+            {insights.map((insight, index) => (
+              <View key={index} style={styles.insightItem}>
+                <View style={styles.insightDot} />
+                <Text style={styles.insightText}>{insight}</Text>
+              </View>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -479,20 +463,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     paddingBottom: 40,
-  },
-  quickActionCard: {
-    width: (width - 56) / 2,
-    borderRadius: 16,
-    padding: 18,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  quickActionCardFull: {
-    width: "100%",
   },
   header: {
     marginBottom: 24,
@@ -517,8 +487,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   quickActionWrapperFull: {
-  width: "100%",
-},
+    width: "100%",
+  },
   headerTextContainer: {
     flex: 1,
   },
@@ -739,6 +709,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+  },
+  quickActionCardFull: {
+    width: "100%",
   },
   quickActionIcon: {
     width: 56,

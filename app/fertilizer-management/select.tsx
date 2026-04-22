@@ -13,42 +13,14 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import mqtt, { MqttClient } from "mqtt";
+import { useLanguage } from "../../context/LanguageContext";
 
-const soilTypes = [
-  {
-    id: "Sandy",
-    icon: "water-outline",
-    description: "Fast draining, low nutrients",
-  },
-  {
-    id: "Loamy",
-    icon: "leaf-outline",
-    description: "Balanced, ideal for most plants",
-  },
-  {
-    id: "Clay",
-    icon: "layers-outline",
-    description: "Nutrient-rich, slower drainage",
-  },
-];
-
-const plantStages = [
-  {
-    id: "Baby",
-    icon: "flower-outline",
-    description: "Early growth phase",
-  },
-  {
-    id: "Mature",
-    icon: "nutrition-outline",
-    description: "Full development stage",
-  },
-  {
-    id: "Damage Recovery",
-    icon: "medkit-outline",
-    description: "Healing and repair",
-  },
-];
+const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
+const HIVEMQ_PORT = 8884;
+const MQTT_TOPIC = "aloeGreen/device01/data";
+const MQTT_USERNAME = "eesara";
+const MQTT_PASSWORD = "Eesara@123";
+const PREDICT_URL = "http://192.168.8.158:8000/api/fertilizer/predict";
 
 type SensorPayload = {
   device_id?: string;
@@ -69,17 +41,57 @@ type SensorPayload = {
   uptime_ms?: number;
 };
 
-const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
-const HIVEMQ_PORT = 8884;
-const MQTT_TOPIC = "aloeGreen/device01/data";
-const MQTT_USERNAME = "eesara";
-const MQTT_PASSWORD = "Eesara@123";
-
-// Change only this if needed
-const PREDICT_URL = "http://192.168.8.158:8000/api/fertilizer/predict";
-
 export default function FertilizerScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const soilTypes = useMemo(
+    () => [
+      {
+        id: "Sandy",
+        label: t("sandy"),
+        icon: "water-outline",
+        description: t("sandyDescription"),
+      },
+      {
+        id: "Loamy",
+        label: t("loamy"),
+        icon: "leaf-outline",
+        description: t("loamyDescription"),
+      },
+      {
+        id: "Clay",
+        label: t("clay"),
+        icon: "layers-outline",
+        description: t("clayDescription"),
+      },
+    ],
+    [t]
+  );
+
+  const plantStages = useMemo(
+    () => [
+      {
+        id: "Baby",
+        label: t("baby"),
+        icon: "flower-outline",
+        description: t("babyDescription"),
+      },
+      {
+        id: "Mature",
+        label: t("mature"),
+        icon: "nutrition-outline",
+        description: t("matureDescription"),
+      },
+      {
+        id: "Damage Recovery",
+        label: t("damageRecovery"),
+        icon: "medkit-outline",
+        description: t("damageRecoveryDescription"),
+      },
+    ],
+    [t]
+  );
 
   const [step, setStep] = useState(1);
   const [soil, setSoil] = useState<string | null>(null);
@@ -151,50 +163,23 @@ export default function FertilizerScreen() {
     clientRef.current = client;
 
     client.on("connect", () => {
-      console.log("MQTT connected");
       setIsConnected(true);
       client.subscribe(MQTT_TOPIC, { qos: 0 }, (err) => {
-        if (err) {
-          console.log("Subscribe error:", err.message);
-        } else {
-          console.log("Subscribed to:", MQTT_TOPIC);
-        }
+        if (err) console.log("Subscribe error:", err.message);
       });
     });
 
-    client.on("reconnect", () => {
-      console.log("MQTT reconnecting...");
-      setIsConnected(false);
-    });
-
+    client.on("reconnect", () => setIsConnected(false));
     client.on("error", (err) => {
       console.log("MQTT error:", err.message);
       setIsConnected(false);
     });
-
-    client.on("close", () => {
-      console.log("MQTT connection closed");
-      setIsConnected(false);
-    });
-
-    client.on("offline", () => {
-      console.log("MQTT offline");
-      setIsConnected(false);
-    });
+    client.on("close", () => setIsConnected(false));
+    client.on("offline", () => setIsConnected(false));
 
     client.on("message", (_topic, message) => {
       try {
         const parsed: SensorPayload = JSON.parse(message.toString());
-        console.log("MQTT payload:", parsed);
-        console.log("temperature_c:", parsed.temperature_c);
-        console.log("humidity_pct:", parsed.humidity_pct);
-        console.log("soil_ph:", parsed.soil_ph);
-        console.log("nitrogen:", parsed.nitrogen);
-        console.log("phosphorus:", parsed.phosphorus);
-        console.log("potassium:", parsed.potassium);
-        console.log("dht_ok:", parsed.dht_ok);
-        console.log("modbus_ok:", parsed.modbus_ok);
-
         setSensorData(parsed);
       } catch (e) {
         console.log("Invalid MQTT payload:", e);
@@ -233,9 +218,9 @@ export default function FertilizerScreen() {
   const potassium = modbusOk ? (sensorData?.potassium ?? 0) : 0;
 
   const getNPKLevel = (value: number) => {
-    if (value >= 60) return "High";
-    if (value >= 30) return "Medium";
-    return "Low";
+    if (value >= 60) return t("high");
+    if (value >= 30) return t("medium");
+    return t("low");
   };
 
   const renderStepIndicator = () => (
@@ -259,7 +244,11 @@ export default function FertilizerScreen() {
             </Text>
           </View>
           <Text style={styles.stepLabel}>
-            {stepNum === 1 ? "Soil" : stepNum === 2 ? "Stage" : "Review"}
+            {stepNum === 1
+              ? t("soil")
+              : stepNum === 2
+              ? t("stage")
+              : t("review")}
           </Text>
           {stepNum < 3 && (
             <View
@@ -283,7 +272,7 @@ export default function FertilizerScreen() {
     if (!soil || !stage) return;
 
     if (!sensorData) {
-      Alert.alert("No Sensor Data", "Waiting for live MQTT sensor values.");
+      Alert.alert(t("noSensorData"), t("waitingForLiveMqtt"));
       return;
     }
 
@@ -302,9 +291,6 @@ export default function FertilizerScreen() {
         Additional_Advice: "Generated using live MQTT IoT sensor data",
       };
 
-      console.log("PREDICT_URL:", PREDICT_URL);
-      console.log("Prediction payload:", payload);
-
       const response = await fetch(PREDICT_URL, {
         method: "POST",
         headers: {
@@ -313,10 +299,7 @@ export default function FertilizerScreen() {
         body: JSON.stringify(payload),
       });
 
-      console.log("Prediction status:", response.status);
-
       const rawText = await response.text();
-      console.log("Prediction raw response:", rawText);
 
       if (!response.ok) {
         throw new Error(rawText || "Prediction request failed");
@@ -325,12 +308,9 @@ export default function FertilizerScreen() {
       let prediction: any = null;
       try {
         prediction = rawText ? JSON.parse(rawText) : null;
-      } catch (parseError) {
-        console.log("Prediction JSON parse error:", parseError);
-        throw new Error("Backend returned invalid JSON");
+      } catch {
+        throw new Error(t("backendReturnedInvalidJson"));
       }
-
-      console.log("Prediction parsed:", prediction);
 
       router.push({
         pathname: "/fertilizer-management/plan",
@@ -348,10 +328,9 @@ export default function FertilizerScreen() {
         },
       });
     } catch (error: any) {
-      console.log("Prediction error:", error);
       Alert.alert(
-        "Prediction Error",
-        error?.message || "Failed to generate fertilizer plan",
+        t("predictionError"),
+        error?.message || t("failedGenerateFertilizerPlan")
       );
     } finally {
       setPredicting(false);
@@ -379,9 +358,9 @@ export default function FertilizerScreen() {
             <Ionicons name="flask" size={32} color="#2E7D32" />
           </View>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Fertilizer Plan</Text>
+            <Text style={styles.headerTitle}>{t("fertilizerPlan")}</Text>
             <Text style={styles.headerSubtitle}>
-              Optimize your crop nutrition
+              {t("optimizeCropNutrition")}
             </Text>
           </View>
         </View>
@@ -394,7 +373,7 @@ export default function FertilizerScreen() {
             ]}
           />
           <Text style={styles.connectionText}>
-            {isConnected ? "Connected to HiveMQ live feed" : "Disconnected"}
+            {isConnected ? t("connectedToHiveMq") : t("disconnected")}
           </Text>
         </View>
 
@@ -413,10 +392,10 @@ export default function FertilizerScreen() {
             <>
               <View style={styles.cardHeader}>
                 <Ionicons name="earth" size={28} color="#2E7D32" />
-                <Text style={styles.cardTitle}>Select Soil Type</Text>
+                <Text style={styles.cardTitle}>{t("selectSoilType")}</Text>
               </View>
               <Text style={styles.cardDescription}>
-                Choose the soil type that best matches your farm
+                {t("chooseSoilType")}
               </Text>
 
               <View style={styles.optionsContainer}>
@@ -457,7 +436,7 @@ export default function FertilizerScreen() {
                             soil === item.id && styles.optionTitleSelected,
                           ]}
                         >
-                          {item.id}
+                          {item.label}
                         </Text>
                         <Text style={styles.optionDescription}>
                           {item.description}
@@ -483,10 +462,10 @@ export default function FertilizerScreen() {
             <>
               <View style={styles.cardHeader}>
                 <Ionicons name="analytics" size={28} color="#2E7D32" />
-                <Text style={styles.cardTitle}>Select Plant Stage</Text>
+                <Text style={styles.cardTitle}>{t("selectPlantStage")}</Text>
               </View>
               <Text style={styles.cardDescription}>
-                What stage are your Aloe Vera plants in?
+                {t("whatStagePlants")}
               </Text>
 
               <View style={styles.optionsContainer}>
@@ -527,7 +506,7 @@ export default function FertilizerScreen() {
                             stage === item.id && styles.optionTitleSelected,
                           ]}
                         >
-                          {item.id}
+                          {item.label}
                         </Text>
                         <Text style={styles.optionDescription}>
                           {item.description}
@@ -553,20 +532,24 @@ export default function FertilizerScreen() {
             <>
               <View style={styles.cardHeader}>
                 <Ionicons name="hardware-chip" size={28} color="#2E7D32" />
-                <Text style={styles.cardTitle}>Live Environmental Data</Text>
+                <Text style={styles.cardTitle}>{t("liveEnvironmentalData")}</Text>
               </View>
               <Text style={styles.cardDescription}>
-                Review current IoT readings before prediction
+                {t("reviewCurrentIotReadings")}
               </Text>
 
               <View style={styles.summaryContainer}>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Soil Type</Text>
-                  <Text style={styles.summaryValue}>{soil}</Text>
+                  <Text style={styles.summaryLabel}>{t("soilType")}</Text>
+                  <Text style={styles.summaryValue}>
+                    {soilTypes.find((s) => s.id === soil)?.label || soil}
+                  </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Plant Stage</Text>
-                  <Text style={styles.summaryValue}>{stage}</Text>
+                  <Text style={styles.summaryLabel}>{t("plantStage")}</Text>
+                  <Text style={styles.summaryValue}>
+                    {plantStages.find((s) => s.id === stage)?.label || stage}
+                  </Text>
                 </View>
               </View>
 
@@ -574,35 +557,35 @@ export default function FertilizerScreen() {
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#2E7D32" />
                   <Text style={styles.loadingText}>
-                    Waiting for MQTT sensor values...
+                    {t("waitingForMqttSensorValues")}
                   </Text>
                 </View>
               ) : (
                 <View style={styles.iotDataContainer}>
-                  <Text style={styles.sectionTitle}>IoT Sensor Readings</Text>
+                  <Text style={styles.sectionTitle}>{t("iotSensorReadings")}</Text>
 
                   <View style={styles.dataGrid}>
                     {[
                       {
                         icon: "thermometer",
-                        label: "Temperature",
+                        label: t("temperature"),
                         value: dhtOk
                           ? `${Number(temperature).toFixed(1)}°C`
                           : "--",
                       },
                       {
                         icon: "water",
-                        label: "Moisture",
+                        label: t("moisture"),
                         value: `${Math.round(soilMoisturePercent)}%`,
                       },
                       {
                         icon: "beaker",
-                        label: "Soil pH",
+                        label: t("soilPh"),
                         value: modbusOk ? Number(soilPH).toFixed(1) : "--",
                       },
                       {
                         icon: "cloud",
-                        label: "Humidity",
+                        label: t("humidity"),
                         value: dhtOk ? `${Number(humidity).toFixed(1)}%` : "--",
                       },
                     ].map((item, index) => (
@@ -620,21 +603,21 @@ export default function FertilizerScreen() {
                     ))}
                   </View>
 
-                  <Text style={styles.sectionTitle}>NPK Levels</Text>
+                  <Text style={styles.sectionTitle}>{t("npkLevels")}</Text>
                   <View style={styles.npkContainer}>
                     {[
                       {
-                        label: "Nitrogen (N)",
+                        label: `${t("nitrogen")} (N)`,
                         value: nitrogen,
                         color: "#4CAF50",
                       },
                       {
-                        label: "Phosphorus (P)",
+                        label: `${t("phosphorus")} (P)`,
                         value: phosphorus,
                         color: "#FF9800",
                       },
                       {
-                        label: "Potassium (K)",
+                        label: `${t("potassium")} (K)`,
                         value: potassium,
                         color: "#2196F3",
                       },
@@ -649,11 +632,11 @@ export default function FertilizerScreen() {
                                 styles.npkBadge,
                                 {
                                   backgroundColor:
-                                    level === "High"
+                                    level === t("high")
                                       ? "#4CAF50"
-                                      : level === "Medium"
-                                        ? "#FF9800"
-                                        : "#F44336",
+                                      : level === t("medium")
+                                      ? "#FF9800"
+                                      : "#F44336",
                                 },
                               ]}
                             >
@@ -689,7 +672,7 @@ export default function FertilizerScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="arrow-back" size={20} color="#2E7D32" />
-              <Text style={styles.backButtonText}>Back</Text>
+              <Text style={styles.backButtonText}>{t("back")}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -698,7 +681,7 @@ export default function FertilizerScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="home" size={20} color="#2E7D32" />
-              <Text style={styles.homeButtonText}>Home</Text>
+              <Text style={styles.homeButtonText}>{t("home")}</Text>
             </TouchableOpacity>
           )}
 
@@ -730,7 +713,7 @@ export default function FertilizerScreen() {
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>
-                    {step < 3 ? "Continue" : "View Plan"}
+                    {step < 3 ? t("continue") : t("viewPlan")}
                   </Text>
                   <Ionicons
                     name={step < 3 ? "arrow-forward" : "document-text"}

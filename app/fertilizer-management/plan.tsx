@@ -11,10 +11,12 @@ import {
   Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function FertilizerPlanScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t, language } = useLanguage();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -69,23 +71,25 @@ export default function FertilizerPlanScreen() {
     prediction?.fertilizers ||
     [
       {
-        type: Number(N) < 30 ? "Nitrogen Support" : "Balanced NPK",
-        dosage: plantStage === "Baby" ? "15g per plant" : "20g per plant",
-        timing: "Morning",
+        type: Number(N) < 30 ? t("nitrogenSupport") : t("balancedNpk"),
+        dosage:
+          plantStage === "Baby" ? t("dosage15gPerPlant") : t("dosage20gPerPlant"),
+        timing: t("morning"),
         icon: "leaf",
         color: "#4CAF50",
       },
       {
-        type: Number(P) < 30 ? "Phosphorus Support" : "Phosphorus Balanced",
-        dosage: plantStage === "Baby" ? "10g per plant" : "15g per plant",
-        timing: "Evening",
+        type: Number(P) < 30 ? t("phosphorusSupport") : t("phosphorusBalanced"),
+        dosage:
+          plantStage === "Baby" ? t("dosage10gPerPlant") : t("dosage15gPerPlant"),
+        timing: t("evening"),
         icon: "flask",
         color: "#FF9800",
       },
       {
-        type: Number(K) < 30 ? "Potassium Support" : "Potassium Balanced",
-        dosage: "10g per plant",
-        timing: "Morning",
+        type: Number(K) < 30 ? t("potassiumSupport") : t("potassiumBalanced"),
+        dosage: t("dosage10gPerPlant"),
+        timing: t("morning"),
         icon: "nutrition",
         color: "#2196F3",
       },
@@ -94,7 +98,9 @@ export default function FertilizerPlanScreen() {
   const adviceText =
     prediction?.advice ||
     prediction?.recommendation ||
-    `For ${soilType} soil with ${plantStage} stage plants, use the live IoT sensor values to guide fertilizer application. Maintain soil pH near ${soilPH} and apply with proper watering.`;
+    `${t("for")} ${soilType} ${t("soilWith")} ${plantStage} ${t(
+      "stagePlantsUseLiveIot"
+    )} ${soilPH} ${t("andApplyProperWatering")}`;
 
   const speakAdvice = () => {
     if (isSpeaking) {
@@ -103,7 +109,7 @@ export default function FertilizerPlanScreen() {
     } else {
       setIsSpeaking(true);
       Speech.speak(adviceText, {
-        language: "en",
+        language: language === "si" ? "si-LK" : "en-US",
         onDone: () => setIsSpeaking(false),
         onStopped: () => setIsSpeaking(false),
         onError: () => setIsSpeaking(false),
@@ -116,6 +122,13 @@ export default function FertilizerPlanScreen() {
     if (value >= 30) return "#FF9800";
     return "#F44336";
   };
+
+  const tips = [
+    t("fertilizerTip1"),
+    t("fertilizerTip2"),
+    t("fertilizerTip3"),
+    t("fertilizerTip4"),
+  ];
 
   return (
     <LinearGradient
@@ -145,9 +158,9 @@ export default function FertilizerPlanScreen() {
               <Ionicons name="document-text" size={28} color="#2E7D32" />
             </View>
             <View>
-              <Text style={styles.headerTitle}>Your Fertilizer Plan</Text>
+              <Text style={styles.headerTitle}>{t("yourFertilizerPlan")}</Text>
               <Text style={styles.headerSubtitle}>
-                Customized for {plantStage} plants
+                {t("customizedFor")} {plantStage} {t("plants")}
               </Text>
             </View>
           </View>
@@ -162,42 +175,42 @@ export default function FertilizerPlanScreen() {
             },
           ]}
         >
-          <Text style={styles.summaryTitle}>Environment Overview</Text>
+          <Text style={styles.summaryTitle}>{t("environmentOverview")}</Text>
           <View style={styles.summaryGrid}>
             <View style={styles.summaryItem}>
               <Ionicons name="layers" size={20} color="#2E7D32" />
-              <Text style={styles.summaryLabel}>Soil</Text>
+              <Text style={styles.summaryLabel}>{t("soil")}</Text>
               <Text style={styles.summaryValue}>{soilType}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Ionicons name="thermometer" size={20} color="#2E7D32" />
-              <Text style={styles.summaryLabel}>Temp</Text>
+              <Text style={styles.summaryLabel}>{t("temp")}</Text>
               <Text style={styles.summaryValue}>{temperature}°C</Text>
             </View>
             <View style={styles.summaryItem}>
               <Ionicons name="water" size={20} color="#2E7D32" />
-              <Text style={styles.summaryLabel}>Moisture</Text>
+              <Text style={styles.summaryLabel}>{t("moisture")}</Text>
               <Text style={styles.summaryValue}>{moisture}%</Text>
             </View>
             <View style={styles.summaryItem}>
               <Ionicons name="cloud" size={20} color="#2E7D32" />
-              <Text style={styles.summaryLabel}>Humidity</Text>
+              <Text style={styles.summaryLabel}>{t("humidity")}</Text>
               <Text style={styles.summaryValue}>{humidity}%</Text>
             </View>
             <View style={styles.summaryItem}>
               <Ionicons name="beaker" size={20} color="#2E7D32" />
-              <Text style={styles.summaryLabel}>pH</Text>
+              <Text style={styles.summaryLabel}>{t("ph")}</Text>
               <Text style={styles.summaryValue}>{soilPH}</Text>
             </View>
           </View>
 
           <View style={styles.npkSection}>
-            <Text style={styles.npkTitle}>Current NPK Levels</Text>
+            <Text style={styles.npkTitle}>{t("currentNpkLevels")}</Text>
             <View style={styles.npkGrid}>
               {[
-                { label: "Nitrogen", value: Number(N) },
-                { label: "Phosphorus", value: Number(P) },
-                { label: "Potassium", value: Number(K) },
+                { label: t("nitrogen"), value: Number(N) },
+                { label: t("phosphorus"), value: Number(P) },
+                { label: t("potassium"), value: Number(K) },
               ].map((item, index) => (
                 <View key={index} style={styles.npkItem}>
                   <Text style={styles.npkLabel}>{item.label}</Text>
@@ -236,7 +249,7 @@ export default function FertilizerPlanScreen() {
             },
           ]}
         >
-          <Text style={styles.sectionTitle}>Recommended Fertilizers</Text>
+          <Text style={styles.sectionTitle}>{t("recommendedFertilizers")}</Text>
 
           {recommendedFertilizers.map((item: any, index: number) => (
             <Animated.View
@@ -270,19 +283,19 @@ export default function FertilizerPlanScreen() {
               </View>
               <View style={styles.fertilizerContent}>
                 <Text style={styles.fertilizerType}>
-                  {item.type || item.name || "Recommended Fertilizer"}
+                  {item.type || item.name || t("recommendedFertilizer")}
                 </Text>
                 <View style={styles.fertilizerDetails}>
                   <View style={styles.detailItem}>
                     <Ionicons name="scale-outline" size={16} color="#4E6E4E" />
                     <Text style={styles.detailText}>
-                      {item.dosage || item.amount || "As recommended"}
+                      {item.dosage || item.amount || t("asRecommended")}
                     </Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Ionicons name="time-outline" size={16} color="#4E6E4E" />
                     <Text style={styles.detailText}>
-                      {item.timing || item.application_time || "Morning"}
+                      {item.timing || item.application_time || t("morning")}
                     </Text>
                   </View>
                 </View>
@@ -304,7 +317,7 @@ export default function FertilizerPlanScreen() {
             <View style={styles.adviceIconWrapper}>
               <MaterialIcons name="smart-toy" size={28} color="#2E7D32" />
             </View>
-            <Text style={styles.adviceTitle}>AI Recommendations</Text>
+            <Text style={styles.adviceTitle}>{t("aiRecommendations")}</Text>
           </View>
           <Text style={styles.adviceText}>{adviceText}</Text>
 
@@ -325,7 +338,7 @@ export default function FertilizerPlanScreen() {
                 color="#fff"
               />
               <Text style={styles.speakButtonText}>
-                {isSpeaking ? "Stop Reading" : "Read Aloud"}
+                {isSpeaking ? t("stopReading") : t("readAloud")}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -340,14 +353,9 @@ export default function FertilizerPlanScreen() {
             },
           ]}
         >
-          <Text style={styles.tipsTitle}>Application Tips</Text>
+          <Text style={styles.tipsTitle}>{t("applicationTips")}</Text>
           <View style={styles.tipsList}>
-            {[
-              "Apply fertilizer in the early morning or late evening",
-              "Water plants thoroughly after fertilizer application",
-              "Keep fertilizer away from the base of the plant stem",
-              "Monitor plant response and adjust dosage if needed",
-            ].map((tip, index) => (
+            {tips.map((tip, index) => (
               <View key={index} style={styles.tipItem}>
                 <View style={styles.tipNumber}>
                   <Text style={styles.tipNumberText}>{index + 1}</Text>
@@ -384,10 +392,10 @@ export default function FertilizerPlanScreen() {
             </View>
             <View style={styles.extraFeatureContent}>
               <Text style={styles.extraFeatureTitle}>
-                Usage Tracker & AI Insights
+                {t("usageTrackerAiInsights")}
               </Text>
               <Text style={styles.extraFeatureDescription}>
-                Track fertilizer usage and get weekly AI recommendations
+                {t("trackUsageWeeklyRecommendations")}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#2E7D32" />
@@ -405,7 +413,7 @@ export default function FertilizerPlanScreen() {
               style={styles.actionButtonGradient}
             >
               <Ionicons name="checkmark-circle" size={22} color="#fff" />
-              <Text style={styles.actionButtonText}>Done</Text>
+              <Text style={styles.actionButtonText}>{t("done")}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -415,7 +423,9 @@ export default function FertilizerPlanScreen() {
             onPress={() => router.push("/fertilizer-management/select")}
           >
             <Ionicons name="refresh" size={22} color="#2E7D32" />
-            <Text style={styles.secondaryActionButtonText}>Create New</Text>
+            <Text style={styles.secondaryActionButtonText}>
+              {t("createNew")}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -429,28 +439,55 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 24, gap: 12 },
   backButton: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerContent: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   headerIconWrapper: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerTitle: { fontSize: 22, fontWeight: "800", color: "#1B5E20" },
   headerSubtitle: { fontSize: 13, color: "#2E7D32", fontWeight: "500" },
   summaryCard: {
-    backgroundColor: "#FFFFFF", borderRadius: 24, padding: 20, marginBottom: 20,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15,
-    shadowRadius: 16, elevation: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   summaryTitle: { fontSize: 18, fontWeight: "700", color: "#1B5E20", marginBottom: 16 },
   summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 20 },
   summaryItem: {
-    flex: 1, minWidth: "22%", backgroundColor: "#F8F9FA", borderRadius: 12,
-    padding: 12, alignItems: "center", gap: 4,
+    flex: 1,
+    minWidth: "22%",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+    gap: 4,
   },
   summaryLabel: { fontSize: 11, color: "#4E6E4E", fontWeight: "600" },
   summaryValue: { fontSize: 14, fontWeight: "700", color: "#2E7D32" },
@@ -465,12 +502,24 @@ const styles = StyleSheet.create({
   npkValue: { fontSize: 12, fontWeight: "700", minWidth: 60 },
   sectionTitle: { fontSize: 20, fontWeight: "700", color: "#1B5E20", marginBottom: 16 },
   fertilizerCard: {
-    flexDirection: "row", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16,
-    marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, gap: 14,
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    gap: 14,
   },
   fertilizerIcon: {
-    width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
   },
   fertilizerContent: { flex: 1, justifyContent: "center" },
   fertilizerType: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 6 },
@@ -478,65 +527,119 @@ const styles = StyleSheet.create({
   detailItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   detailText: { fontSize: 13, color: "#4E6E4E", fontWeight: "500" },
   adviceCard: {
-    backgroundColor: "#FFFFFF", borderRadius: 24, padding: 20, marginTop: 20, marginBottom: 20,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15,
-    shadowRadius: 16, elevation: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   adviceHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
   adviceIconWrapper: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: "#E8F5E9",
-    justifyContent: "center", alignItems: "center",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
   },
   adviceTitle: { fontSize: 18, fontWeight: "700", color: "#1B5E20" },
   adviceText: { fontSize: 14, color: "#4E6E4E", lineHeight: 22, marginBottom: 16 },
   speakButton: {
-    borderRadius: 16, overflow: "hidden", shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   speakButtonGradient: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingVertical: 14, paddingHorizontal: 20, gap: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 10,
   },
   speakButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   tipsCard: {
-    backgroundColor: "#FFFFFF", borderRadius: 20, padding: 20, marginBottom: 20,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1,
-    shadowRadius: 8, elevation: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   tipsTitle: { fontSize: 18, fontWeight: "700", color: "#1B5E20", marginBottom: 14 },
   tipsList: { gap: 12 },
   tipItem: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   tipNumber: {
-    width: 24, height: 24, borderRadius: 12, backgroundColor: "#E8F5E9",
-    justifyContent: "center", alignItems: "center",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
   },
   tipNumberText: { fontSize: 12, fontWeight: "700", color: "#2E7D32" },
   tipText: { flex: 1, fontSize: 14, color: "#4E6E4E", lineHeight: 20 },
   extraFeature: {
-    marginBottom: 20, borderRadius: 20, overflow: "hidden", shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   extraFeatureGradient: { flexDirection: "row", alignItems: "center", padding: 18, gap: 14 },
   extraFeatureIcon: {
-    width: 60, height: 60, borderRadius: 30, backgroundColor: "#E8F5E9",
-    justifyContent: "center", alignItems: "center",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
   },
   extraFeatureContent: { flex: 1 },
   extraFeatureTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 4 },
   extraFeatureDescription: { fontSize: 13, color: "#4E6E4E", lineHeight: 18 },
   actionButtons: { flexDirection: "row", gap: 12 },
   actionButton: {
-    flex: 1, borderRadius: 16, overflow: "hidden", shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+    flex: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   actionButtonGradient: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingVertical: 16, gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 8,
   },
   actionButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   secondaryActionButton: {
-    backgroundColor: "#FFFFFF", shadowOpacity: 0.1, flexDirection: "row",
-    alignItems: "center", justifyContent: "center", paddingVertical: 16, gap: 8,
+    backgroundColor: "#FFFFFF",
+    shadowOpacity: 0.1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 8,
   },
   secondaryActionButtonText: { color: "#2E7D32", fontSize: 16, fontWeight: "700" },
 });

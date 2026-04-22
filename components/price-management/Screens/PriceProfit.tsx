@@ -7,17 +7,18 @@ import {
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
+  Pressable,
   ScrollView,
   Text,
   View,
   ActivityIndicator,
   TouchableOpacity,
-  Pressable,
   FlatList,
 } from "react-native";
 import { BarChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useAxios from "@/hooks/useAxios";
+import { useLanguage } from "@/context/LanguageContext";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -33,6 +34,8 @@ type Record = {
 
 export default function PriceProfit() {
   const axios = useAxios();
+  const { t } = useLanguage();
+
   const [records, setRecords] = useState<Record[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +65,7 @@ export default function PriceProfit() {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={{ marginTop: 10, color: "#666" }}>Loading records...</Text>
+        <Text style={{ marginTop: 10, color: "#666" }}>{t("loadingRecords")}</Text>
       </SafeAreaView>
     );
   }
@@ -83,7 +86,7 @@ export default function PriceProfit() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Leaf size={28} color="#ffffff" />
             <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
-              Price & Profit Analysis
+              {t("priceProfitAnalysis")}
             </Text>
           </View>
           <Text
@@ -94,7 +97,7 @@ export default function PriceProfit() {
               color: "#dcfce7",
             }}
           >
-            No records found
+            {t("noRecordsFound")}
           </Text>
         </View>
       </SafeAreaView>
@@ -115,7 +118,7 @@ export default function PriceProfit() {
   const rs = (v: number) => `Rs. ${v.toLocaleString()}`;
 
   const chartData = {
-    labels: ["Farm Gate", "Web Market"],
+    labels: [t("farmGate"), t("webMarket")],
     datasets: [
       {
         data: [farmerPrice, webPrice],
@@ -129,7 +132,6 @@ export default function PriceProfit() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 30 }}
       >
-        {/* ================= HEADER ================= */}
         <LinearGradient
           colors={["#16a34a", "#15803d"]}
           style={{
@@ -144,16 +146,15 @@ export default function PriceProfit() {
             <Leaf size={28} color="#ffffff" />
             <View>
               <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
-                Price & Profit Analysis
+                {t("priceProfitAnalysis")}
               </Text>
               <Text style={{ color: "#dcfce7", marginTop: 6, fontSize: 13 }}>
-                Latest: {farmData.date} ({farmData.productionQuantity} kg)
+                {t("latest")}: {farmData.date} ({farmData.productionQuantity} kg)
               </Text>
             </View>
           </View>
         </LinearGradient>
 
-        {/* ================= RECORD SELECTOR ================= */}
         <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
           <TouchableOpacity
             onPress={() => setShowSelector(!showSelector)}
@@ -170,7 +171,7 @@ export default function PriceProfit() {
             }}
           >
             <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>
-              📅 {selectedRecord.date || "No date"}
+              📅 {selectedRecord.date || t("noDate")}
             </Text>
             <Text style={{ color: "#999" }}>{showSelector ? "▼" : "▶"}</Text>
           </TouchableOpacity>
@@ -218,7 +219,6 @@ export default function PriceProfit() {
           )}
         </View>
 
-        {/* ================= PRICE COMPARISON ================= */}
         <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
           <View
             style={{
@@ -240,7 +240,7 @@ export default function PriceProfit() {
                 marginBottom: 12,
               }}
             >
-              Price Comparison (Rs / kg)
+              {t("priceComparisonRsKg")}
             </Text>
 
             <BarChart
@@ -267,7 +267,6 @@ export default function PriceProfit() {
           </View>
         </View>
 
-        {/* ================= FARM GATE PROFIT ================= */}
         <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
           <LinearGradient
             colors={["#16a34a", "#15803d"]}
@@ -277,7 +276,7 @@ export default function PriceProfit() {
             }}
           >
             <ProfitCard
-              title="Estimated Profit (Farm Gate)"
+              title={t("estimatedProfitFarmGate")}
               profit={farmerProfit}
               formula={`(${rs(farmerPrice)} × ${totalProduction} kg) − ${rs(
                 totalCost
@@ -287,7 +286,6 @@ export default function PriceProfit() {
           </LinearGradient>
         </View>
 
-        {/* ================= WEB MARKET PROFIT ================= */}
         <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
           <LinearGradient
             colors={["#059669", "#047857"]}
@@ -297,7 +295,7 @@ export default function PriceProfit() {
             }}
           >
             <ProfitCard
-              title="Estimated Profit (Web Market)"
+              title={t("estimatedProfitWebMarket")}
               profit={webProfit}
               formula={`(${rs(webPrice)} × ${totalProduction} kg) − ${rs(
                 totalCost
@@ -307,7 +305,6 @@ export default function PriceProfit() {
           </LinearGradient>
         </View>
 
-        {/* ================= PROFIT DIFFERENCE ================= */}
         <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
           <View
             style={{
@@ -329,7 +326,7 @@ export default function PriceProfit() {
                 marginBottom: 12,
               }}
             >
-              Profit Difference
+              {t("profitDifference")}
             </Text>
 
             <View
@@ -343,7 +340,7 @@ export default function PriceProfit() {
               }}
             >
               <Text style={{ fontSize: 14, color: "#6b7280" }}>
-                Extra profit by selling online
+                {t("extraProfitBySellingOnline")}
               </Text>
               <Text
                 style={{
@@ -364,8 +361,7 @@ export default function PriceProfit() {
                 lineHeight: 16,
               }}
             >
-              This shows how much more profit you can earn by selling aloe vera
-              through online markets instead of local buyers.
+              {t("sellingOnlineProfitExplanation")}
             </Text>
           </View>
         </View>
@@ -373,8 +369,6 @@ export default function PriceProfit() {
     </SafeAreaView>
   );
 }
-
-/* ================= COMPONENTS ================= */
 
 function ProfitCard({
   title,

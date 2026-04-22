@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
+import { useLanguage } from "@/context/LanguageContext";
 
 type FormState = {
   productionQuantity: string;
@@ -25,8 +26,8 @@ type FormState = {
 };
 
 export default function AddData() {
-
   const axios = useAxios();
+  const { t } = useLanguage();
 
   const initialForm: FormState = {
     productionQuantity: "",
@@ -42,23 +43,19 @@ export default function AddData() {
   const [modalVisible, setModalVisible] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  /* ---------- GET LOCATION ---------- */
-
   const getLocation = async () => {
     try {
-
       const enabled = await Location.hasServicesEnabledAsync();
 
       if (!enabled) {
-        Alert.alert("Location Disabled", "Please enable location services.");
+        Alert.alert(t("locationDisabled"), t("pleaseEnableLocationServices"));
         return null;
       }
 
-      const { status } =
-        await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
-        Alert.alert("Permission Denied", "Location permission is required.");
+        Alert.alert(t("permissionDenied"), t("locationPermissionRequired"));
         return null;
       }
 
@@ -72,17 +69,16 @@ export default function AddData() {
         longitude: lon,
       });
 
-      let locationName = "Unknown";
+      let locationName = t("unknown");
 
       if (geo.length > 0) {
-
         const place = geo[0];
 
         const name =
           place.city ||
           place.subregion ||
           place.region ||
-          "Unknown";
+          t("unknown");
 
         locationName = `${name}, ${place.country}`;
       }
@@ -90,51 +86,41 @@ export default function AddData() {
       return {
         lat,
         lon,
-        locationName
+        locationName,
       };
-
     } catch (err) {
-
       console.log(err);
-      Alert.alert("Error", "Failed to get location.");
+      Alert.alert(t("error"), t("failedToGetLocation"));
       return null;
-
     }
   };
 
-  /* ---------- CLEAR DATA ---------- */
-
   const clearData = () => {
-
     Alert.alert(
-      "Clear Data",
-      "Are you sure you want to clear all fields?",
+      t("clearData"),
+      t("clearAllFieldsConfirm"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("cancel"), style: "cancel" },
         {
-          text: "Clear",
+          text: t("clear"),
           style: "destructive",
           onPress: () => {
             setForm(initialForm);
             setResult(null);
-          }
-        }
+          },
+        },
       ]
     );
-
   };
 
-  /* ---------- SAVE DATA ---------- */
-
   const onSave = async () => {
-
     if (
       !form.productionQuantity ||
       !form.totalCost ||
       !form.farmerPrice ||
       !form.webPrice
     ) {
-      Alert.alert("Missing Data", "Please fill all required fields.");
+      Alert.alert(t("missingData"), t("pleaseFillRequiredFields"));
       return;
     }
 
@@ -152,23 +138,19 @@ export default function AddData() {
     const locationName = locationData.locationName;
 
     const payload: any = {
-
       date: new Date().toISOString().split("T")[0],
-
       productionQuantity: Number(form.productionQuantity),
       totalCost: Number(form.totalCost),
       farmerPrice: Number(form.farmerPrice),
       webPrice: Number(form.webPrice),
-
       latitude: lat,
-      longitude: lon
+      longitude: lon,
     };
 
     if (form.plantDate) payload.plantDate = form.plantDate;
     if (form.harvestDate) payload.harvestDate = form.harvestDate;
 
     try {
-
       const predictRes = await axios.post("/api/predict-price", {
         production_qty_kg: payload.productionQuantity,
         total_cost_lkr: payload.totalCost,
@@ -195,24 +177,16 @@ export default function AddData() {
 
       setModalVisible(true);
       setForm(initialForm);
-
     } catch (err: any) {
-
       console.log(err?.response?.data);
-      Alert.alert("Error", "Failed to save data.");
-
+      Alert.alert(t("error"), t("failedToSaveData"));
     } finally {
-
       setLoading(false);
-
     }
   };
 
-  /* ---------- UI ---------- */
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
-
       <View
         style={{
           backgroundColor: "#16a34a",
@@ -221,26 +195,22 @@ export default function AddData() {
           borderBottomRightRadius: 28,
         }}
       >
-
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Leaf size={26} color="#fff" />
           <Text style={{ fontSize: 22, fontWeight: "700", color: "#fff" }}>
-            Add Production Data
+            {t("addProductionData")}
           </Text>
         </View>
-
       </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-
         <ScrollView contentContainerStyle={{ padding: 16 }}>
-
           <Input
-            label="Production Quantity (kg)"
-            placeholder="Example: 1500"
+            label={t("productionQuantityKg")}
+            placeholder={t("example1500")}
             value={form.productionQuantity}
             onChange={(v: string) =>
               setForm({ ...form, productionQuantity: v })
@@ -248,8 +218,8 @@ export default function AddData() {
           />
 
           <Input
-            label="Total Cost (LKR)"
-            placeholder="Example: 100000"
+            label={t("totalCostLkr")}
+            placeholder={t("example100000")}
             value={form.totalCost}
             onChange={(v: string) =>
               setForm({ ...form, totalCost: v })
@@ -257,8 +227,8 @@ export default function AddData() {
           />
 
           <Input
-            label="Farm Gate Price (LKR)"
-            placeholder="Example: 210"
+            label={t("farmGatePriceLkr")}
+            placeholder={t("example210")}
             value={form.farmerPrice}
             onChange={(v: string) =>
               setForm({ ...form, farmerPrice: v })
@@ -266,8 +236,8 @@ export default function AddData() {
           />
 
           <Input
-            label="Web Market Price (LKR)"
-            placeholder="Example: 230"
+            label={t("webMarketPriceLkr")}
+            placeholder={t("example230")}
             value={form.webPrice}
             onChange={(v: string) =>
               setForm({ ...form, webPrice: v })
@@ -275,8 +245,8 @@ export default function AddData() {
           />
 
           <Input
-            label="Plant Date"
-            placeholder="YYYY-MM-DD"
+            label={t("plantDate")}
+            placeholder={t("datePlaceholder")}
             value={form.plantDate}
             onChange={(v: string) =>
               setForm({ ...form, plantDate: v })
@@ -284,25 +254,21 @@ export default function AddData() {
           />
 
           <Input
-            label="Harvest Date"
-            placeholder="YYYY-MM-DD"
+            label={t("harvestDate")}
+            placeholder={t("datePlaceholder")}
             value={form.harvestDate}
             onChange={(v: string) =>
               setForm({ ...form, harvestDate: v })
             }
           />
 
-          {/* SAVE BUTTON */}
-
           <Button
-            title={loading ? "Saving..." : "Save Data"}
+            title={loading ? t("saving") : t("saveData")}
             onPress={onSave}
             disabled={loading}
           />
 
           <View style={{ height: 10 }} />
-
-          {/* CLEAR BUTTON */}
 
           <TouchableOpacity
             onPress={clearData}
@@ -314,18 +280,13 @@ export default function AddData() {
             }}
           >
             <Text style={{ color: "#fff", fontWeight: "700" }}>
-              Clear Data
+              {t("clearData")}
             </Text>
           </TouchableOpacity>
-
         </ScrollView>
-
       </KeyboardAvoidingView>
 
-      {/* RESULT MODAL */}
-
       <Modal visible={modalVisible} transparent animationType="fade">
-
         <View
           style={{
             flex: 1,
@@ -334,20 +295,18 @@ export default function AddData() {
             padding: 20,
           }}
         >
-
           <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 20 }}>
-
             <Text style={{ fontSize: 20, fontWeight: "700" }}>
-              🌱 Production Data Saved
+              🌱 {t("productionDataSaved")}
             </Text>
 
             {result && (
-              <View style={{ marginTop: 12 }}>
-                <Text>Predicted Price - Rs. {result.predictedPrice.toFixed(2)}</Text>
-                <Text>Disaster Status - {result.disaster}</Text>
-                <Text>Advice - {result.advice}</Text>
-                <Text>Location Used - {result.location}</Text>
-                <Text>Location Name - {result.locationName}</Text>
+              <View style={{ marginTop: 12, gap: 4 }}>
+                <Text>{t("predictedPrice")} - Rs. {result.predictedPrice.toFixed(2)}</Text>
+                <Text>{t("disasterStatus")} - {result.disaster}</Text>
+                <Text>{t("advice")} - {result.advice}</Text>
+                <Text>{t("locationUsed")} - {result.location}</Text>
+                <Text>{t("locationName")} - {result.locationName}</Text>
               </View>
             )}
 
@@ -361,24 +320,17 @@ export default function AddData() {
               }}
             >
               <Text style={{ color: "#fff", textAlign: "center" }}>
-                Close
+                {t("close")}
               </Text>
             </TouchableOpacity>
-
           </View>
-
         </View>
-
       </Modal>
-
     </SafeAreaView>
   );
 }
 
-/* ---------- INPUT ---------- */
-
 function Input({ label, value, onChange, placeholder }: any) {
-
   return (
     <View style={{ marginBottom: 16 }}>
       <Text>{label}</Text>
@@ -400,10 +352,7 @@ function Input({ label, value, onChange, placeholder }: any) {
   );
 }
 
-/* ---------- BUTTON ---------- */
-
 function Button({ title, onPress, disabled }: any) {
-
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -415,9 +364,7 @@ function Button({ title, onPress, disabled }: any) {
         alignItems: "center",
       }}
     >
-
       <Text style={{ color: "#fff", fontWeight: "700" }}>{title}</Text>
-
     </TouchableOpacity>
   );
 }

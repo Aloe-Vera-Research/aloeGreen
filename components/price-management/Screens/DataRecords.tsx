@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useAxios from "@/hooks/useAxios";
+import { useLanguage } from "@/context/LanguageContext";
 
 type Record = {
   id: string;
@@ -39,6 +40,8 @@ type Record = {
 
 export default function DataRecords() {
   const axios = useAxios();
+  const { t } = useLanguage();
+
   const [records, setRecords] = useState<Record[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +54,7 @@ export default function DataRecords() {
       const recordList: Record[] = res.data?.records || [];
       setRecords(recordList);
       if (recordList.length > 0) {
-        setSelectedRecord(recordList[0]); // Latest record
+        setSelectedRecord(recordList[0]);
       }
     } catch (err) {
       console.error("Failed to fetch records", err);
@@ -60,12 +63,10 @@ export default function DataRecords() {
     }
   }, [axios]);
 
-  // Fetch on mount
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
 
-  // Refetch whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchRecords();
@@ -76,7 +77,7 @@ export default function DataRecords() {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={{ marginTop: 10, color: "#666" }}>Loading records...</Text>
+        <Text style={{ marginTop: 10, color: "#666" }}>{t("loadingRecords")}</Text>
       </SafeAreaView>
     );
   }
@@ -98,10 +99,10 @@ export default function DataRecords() {
             <Leaf size={28} color="#ffffff" />
             <View>
               <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
-                Production Records
+                {t("productionRecords")}
               </Text>
               <Text style={{ fontSize: 13, color: "#dcfce7", marginTop: 2 }}>
-                No records found
+                {t("noRecordsFound")}
               </Text>
             </View>
           </View>
@@ -122,7 +123,6 @@ export default function DataRecords() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 30 }}
       >
-        {/* ================= HEADER ================= */}
         <View
           style={{
             backgroundColor: "#16a34a",
@@ -137,16 +137,15 @@ export default function DataRecords() {
             <Leaf size={28} color="#ffffff" />
             <View>
               <Text style={{ fontSize: 22, fontWeight: "700", color: "#ffffff" }}>
-                Production Records
+                {t("productionRecords")}
               </Text>
               <Text style={{ fontSize: 13, color: "#dcfce7", marginTop: 2 }}>
-                Showing latest {records.length > 0 ? `(${records.length} total)` : ""}
+                {t("showingLatest")} {records.length > 0 ? `(${records.length} ${t("total")})` : ""}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* ================= RECORD SELECTOR ================= */}
         <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
           <TouchableOpacity
             onPress={() => setShowSelector(!showSelector)}
@@ -163,7 +162,7 @@ export default function DataRecords() {
             }}
           >
             <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>
-              📅 {selectedRecord.date || "No date"}
+              📅 {selectedRecord.date || t("noDate")}
             </Text>
             <Text style={{ color: "#999" }}>{showSelector ? "▼" : "▶"}</Text>
           </TouchableOpacity>
@@ -203,7 +202,7 @@ export default function DataRecords() {
                     </Text>
                     <Text style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
                       {item.naturalDisaster}
-                      {item.predictedPrice && ` • Pred: Rs. ${item.predictedPrice}`}
+                      {item.predictedPrice && ` • ${t("pred")} Rs. ${item.predictedPrice}`}
                     </Text>
                   </Pressable>
                 )}
@@ -212,86 +211,79 @@ export default function DataRecords() {
           )}
         </View>
 
-        {/* ================= CONTENT ================= */}
         <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
-          {/* PRODUCTION */}
-          <Section title="Production Details">
-            <Record
+          <Section title={t("productionDetails")}>
+            <RecordItem
               icon={<Package size={18} color="#15803d" />}
               bg="#dcfce7"
-              label="Production Quantity"
+              label={t("productionQuantity")}
               value={`${farmData.productionQuantity} kg`}
             />
 
-            <Record
+            <RecordItem
               icon={<Wallet size={18} color="#b45309" />}
               bg="#fef3c7"
-              label="Total Production Cost"
+              label={t("totalProductionCost")}
               value={rs(farmData.totalCost)}
             />
           </Section>
 
-          {/* MARKET */}
-          <Section title="Market Prices">
-            <Record
+          <Section title={t("marketPrices")}>
+            <RecordItem
               icon={<ShoppingCart size={18} color="#1d4ed8" />}
               bg="#dbeafe"
-              label="Farm Gate Price"
+              label={t("farmGatePrice")}
               value={`${rs(farmData.farmerPrice)} / kg`}
             />
 
-            <Record
+            <RecordItem
               icon={<Globe size={18} color="#047857" />}
               bg="#d1fae5"
-              label="Online Market Price"
+              label={t("onlineMarketPrice")}
               value={`${rs(farmData.webPrice)} / kg`}
             />
           </Section>
 
-          {/* TIMELINE */}
-          <Section title="Crop Timeline">
+          <Section title={t("cropTimeline")}>
             {farmData.plantDate && (
-              <Record
+              <RecordItem
                 icon={<Sprout size={18} color="#6d28d9" />}
                 bg="#f5f3ff"
-                label="Plant Date"
+                label={t("plantDate")}
                 value={farmData.plantDate}
               />
             )}
 
             {farmData.harvestDate && (
-              <Record
+              <RecordItem
                 icon={<Calendar size={18} color="#b45309" />}
                 bg="#fef3c7"
-                label="Harvest Date"
+                label={t("harvestDate")}
                 value={farmData.harvestDate}
               />
             )}
           </Section>
 
-          {/* ENVIRONMENT */}
-          <Section title="Environmental Condition">
-            <Record
+          <Section title={t("environmentalCondition")}>
+            <RecordItem
               icon={<AlertTriangle size={18} color="#dc2626" />}
               bg="#fee2e2"
-              label="Natural Disaster"
+              label={t("naturalDisaster")}
               value={farmData.naturalDisaster}
             />
           </Section>
 
-          {/* PREDICTED PRICE */}
           {farmData.predictedPrice && (
-            <Section title="AI Model Prediction">
-              <Record
+            <Section title={t("aiModelPrediction")}>
+              <RecordItem
                 icon={<TrendingUp size={18} color="#059669" />}
                 bg="#d1fae5"
-                label="Predicted Leaf Price"
+                label={t("predictedLeafPrice")}
                 value={`Rs. ${farmData.predictedPrice.toLocaleString()}`}
               />
             </Section>
           )}
 
-          {/* ================= FINANCIAL SUMMARY ================= */}
           <View
             style={{
               backgroundColor: "#ffffff",
@@ -313,17 +305,17 @@ export default function DataRecords() {
                 marginBottom: 12,
               }}
             >
-              Financial Summary
+              {t("financialSummary")}
             </Text>
 
             <SummaryRow
-              label="Farm Revenue"
+              label={t("farmRevenue")}
               value={rs(farmRevenue)}
               color="#1d4ed8"
             />
 
             <SummaryRow
-              label="Potential Web Revenue"
+              label={t("potentialWebRevenue")}
               value={rs(webRevenue)}
               color="#047857"
             />
@@ -337,7 +329,7 @@ export default function DataRecords() {
             />
 
             <SummaryRow
-              label="Net Profit"
+              label={t("netProfit")}
               value={rs(netProfit)}
               color={netProfit >= 0 ? "#15803d" : "#dc2626"}
               bold
@@ -348,8 +340,6 @@ export default function DataRecords() {
     </SafeAreaView>
   );
 }
-
-/* ================= SMALL COMPONENTS ================= */
 
 function Section({
   title,
@@ -375,7 +365,7 @@ function Section({
   );
 }
 
-function Record({
+function RecordItem({
   icon,
   label,
   value,

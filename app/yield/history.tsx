@@ -13,6 +13,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
+import { useLanguage } from "../../context/LanguageContext";
 
 const { width } = Dimensions.get("window");
 
@@ -37,7 +38,6 @@ type ForecastPoint = {
   gelWeightG: number;
 };
 
-// ─── Animated Bar ─────────────────────────────────────────────────────────────
 function AnimatedBar({
   item,
   maxYield,
@@ -119,8 +119,9 @@ const barStyles = StyleSheet.create({
   },
 });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function YieldHistoryScreen() {
+  const { t, language } = useLanguage();
+
   const [timeRange, setTimeRange] = useState<"week" | "month">("week");
   const [plantCount, setPlantCount] = useState<number>(0);
   const [plantAgeMonths, setPlantAgeMonths] = useState<number>(1);
@@ -146,7 +147,7 @@ export default function YieldHistoryScreen() {
     try {
       const data = await AsyncStorage.getItem("farmConfig");
       if (!data) {
-        setError("Farm setup not found. Please configure your farm first.");
+        setError(t("farmSetupNotFound"));
         return;
       }
       const parsed: FarmConfig = JSON.parse(data);
@@ -165,7 +166,7 @@ export default function YieldHistoryScreen() {
       setSoilTextureEnc(soilTextureMap[soilType] ?? 1);
       setError("");
     } catch {
-      setError("Failed to load farm configuration.");
+      setError(t("failedToLoadFarmConfig"));
     }
   };
 
@@ -176,8 +177,11 @@ export default function YieldHistoryScreen() {
       d.setDate(d.getDate() + i + 1);
       const label =
         timeRange === "week"
-          ? d.toLocaleDateString("en-US", { weekday: "short" })
-          : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          ? d.toLocaleDateString(language === "si" ? "si-LK" : "en-US", { weekday: "short" })
+          : d.toLocaleDateString(language === "si" ? "si-LK" : "en-US", {
+              month: "short",
+              day: "numeric",
+            });
       const naiveTimestamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T12:00:00`;
       return { label, target_timestamp: naiveTimestamp };
     });
@@ -216,18 +220,22 @@ export default function YieldHistoryScreen() {
       );
       setForecastData(responses);
     } catch (err: any) {
-      setError(err?.message || "Failed to load forecast data.");
+      setError(err?.message || t("failedToLoadForecastData"));
       setForecastData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useFocusEffect(useCallback(() => { loadFarmSetup(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      loadFarmSetup();
+    }, [t])
+  );
 
   useEffect(() => {
     if (plantAgeMonths > 0) fetchForecast();
-  }, [plantAgeMonths, soilTextureEnc, timeRange]);
+  }, [plantAgeMonths, soilTextureEnc, timeRange, language]);
 
   const stats = useMemo(() => {
     if (!forecastData.length) return { avg: "0.0", max: 0, min: 0, avgTotalKg: "0.00" };
@@ -252,22 +260,37 @@ export default function YieldHistoryScreen() {
     const diff =
       forecastData[forecastData.length - 1].gelWeightG - forecastData[0].gelWeightG;
     if (diff > 0.5)
-      return { label: "Improving", icon: "trending-up" as const, color: "#4CAF50", bg: "#E8F5E9" };
+      return {
+        label: t("improving"),
+        icon: "trending-up" as const,
+        color: "#4CAF50",
+        bg: "#E8F5E9",
+      };
     if (diff < -0.5)
-      return { label: "Declining", icon: "trending-down" as const, color: "#F44336", bg: "#FFEBEE" };
-    return { label: "Stable", icon: "remove" as const, color: "#FF9800", bg: "#FFF3E0" };
-  }, [forecastData]);
+      return {
+        label: t("declining"),
+        icon: "trending-down" as const,
+        color: "#F44336",
+        bg: "#FFEBEE",
+      };
+    return {
+      label: t("stable"),
+      icon: "remove" as const,
+      color: "#FF9800",
+      bg: "#FFF3E0",
+    };
+  }, [forecastData, t]);
 
   const insightText = useMemo(() => {
-    if (!forecastData.length) return "No forecast available yet.";
+    if (!forecastData.length) return t("noForecastAvailableYet");
     const diff =
       forecastData[forecastData.length - 1].gelWeightG - forecastData[0].gelWeightG;
     if (diff > 0.5)
-      return `Yield is trending upward — peak of ${stats.max.toFixed(1)}g expected. Optimal harvest window approaching.`;
+      return `${t("yieldTrendingUpward")} ${stats.max.toFixed(1)}g ${t("expectedOptimalHarvestApproaching")}`;
     if (diff < -0.5)
-      return `A slight decline of ${Math.abs(diff).toFixed(1)}g is forecasted. Consider reviewing irrigation and soil moisture.`;
-    return `Forecast remains stable around ${stats.avg}g per plant across the selected period.`;
-  }, [forecastData, stats]);
+      return `${t("slightDeclineForecasted")} ${Math.abs(diff).toFixed(1)}g ${t("reviewIrrigationSoilMoisture")}`;
+    return `${t("forecastStableAround")} ${stats.avg}g ${t("perPlantAcrossSelectedPeriod")}`;
+  }, [forecastData, stats, t]);
 
   return (
     <LinearGradient colors={["#E8F5E9", "#F1F8E9", "#FFFFFF"]} style={styles.container}>
@@ -276,7 +299,6 @@ export default function YieldHistoryScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ── */}
         <Animated.View
           style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -285,30 +307,29 @@ export default function YieldHistoryScreen() {
               <MaterialCommunityIcons name="chart-timeline-variant" size={28} color="#2E7D32" />
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>Yield Forecast</Text>
-              <Text style={styles.subtitle}>Future prediction using ML forecasting</Text>
+              <Text style={styles.title}>{t("yieldForecast")}</Text>
+              <Text style={styles.subtitle}>{t("futurePredictionUsingMlForecasting")}</Text>
             </View>
           </View>
 
           <View style={styles.statusBanner}>
             <View style={styles.statusIndicator}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusText}>ML Model: Active</Text>
+              <Text style={styles.statusText}>{t("mlModelActive")}</Text>
             </View>
             <View style={styles.pillRow}>
               <View style={styles.infoPill}>
                 <Ionicons name="leaf-outline" size={12} color="#4CAF50" />
-                <Text style={styles.infoPillText}>{plantCount} plants</Text>
+                <Text style={styles.infoPillText}>{plantCount} {t("plants")}</Text>
               </View>
               <View style={styles.infoPill}>
                 <Ionicons name="time-outline" size={12} color="#FF9800" />
-                <Text style={styles.infoPillText}>{plantAgeMonths}mo</Text>
+                <Text style={styles.infoPillText}>{plantAgeMonths}{t("monthsShort")}</Text>
               </View>
             </View>
           </View>
         </Animated.View>
 
-        {/* ── Toggle ── */}
         <Animated.View
           style={[styles.toggle, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -324,7 +345,7 @@ export default function YieldHistoryScreen() {
               />
             )}
             <Text style={[styles.toggleText, timeRange === "week" && styles.toggleTextActive]}>
-              7 Days
+              {t("sevenDays")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -339,12 +360,11 @@ export default function YieldHistoryScreen() {
               />
             )}
             <Text style={[styles.toggleText, timeRange === "month" && styles.toggleTextActive]}>
-              30 Days
+              {t("thirtyDays")}
             </Text>
           </TouchableOpacity>
         </Animated.View>
 
-        {/* ── Stats Grid ── */}
         <Animated.View
           style={[styles.statsGrid, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -352,31 +372,30 @@ export default function YieldHistoryScreen() {
             <View style={[styles.statIcon, { backgroundColor: "#E8F5E9" }]}>
               <Ionicons name="leaf-outline" size={22} color="#4CAF50" />
             </View>
-            <Text style={styles.statLabel}>AVG / PLANT</Text>
+            <Text style={styles.statLabel}>{t("avgPerPlant")}</Text>
             <Text style={styles.statValue}>{stats.avg}</Text>
-            <Text style={styles.statSubtext}>grams</Text>
+            <Text style={styles.statSubtext}>{t("grams")}</Text>
           </View>
 
           <View style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: "#E8F5E9" }]}>
               <Ionicons name="trending-up-outline" size={22} color="#2E7D32" />
             </View>
-            <Text style={styles.statLabel}>PEAK</Text>
+            <Text style={styles.statLabel}>{t("peak")}</Text>
             <Text style={styles.statValue}>{stats.max.toFixed(1)}</Text>
-            <Text style={styles.statSubtext}>grams</Text>
+            <Text style={styles.statSubtext}>{t("grams")}</Text>
           </View>
 
           <View style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: "#E3F2FD" }]}>
               <MaterialCommunityIcons name="scale" size={22} color="#2196F3" />
             </View>
-            <Text style={styles.statLabel}>FARM AVG</Text>
+            <Text style={styles.statLabel}>{t("farmAverage")}</Text>
             <Text style={styles.statValue}>{stats.avgTotalKg}</Text>
-            <Text style={styles.statSubtext}>kg total</Text>
+            <Text style={styles.statSubtext}>{t("kgTotal")}</Text>
           </View>
         </Animated.View>
 
-        {/* ── Trend Badge ── */}
         {trend && (
           <Animated.View
             style={[styles.trendRow, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
@@ -385,29 +404,28 @@ export default function YieldHistoryScreen() {
               <Ionicons name={trend.icon} size={14} color={trend.color} />
               <Text style={[styles.trendText, { color: trend.color }]}>{trend.label}</Text>
             </View>
-            <Text style={styles.trendNote}>Trend across selected period</Text>
+            <Text style={styles.trendNote}>{t("trendAcrossSelectedPeriod")}</Text>
           </Animated.View>
         )}
 
-        {/* ── Chart Card ── */}
         <Animated.View
           style={[styles.chartCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
         >
           <View style={styles.chartHeaderRow}>
             <View>
-              <Text style={styles.chartTitle}>Forecast Trend</Text>
-              <Text style={styles.chartSub}>Predicted gel weight per plant (g)</Text>
+              <Text style={styles.chartTitle}>{t("forecastTrend")}</Text>
+              <Text style={styles.chartSub}>{t("predictedGelWeightPerPlant")}</Text>
             </View>
             <View style={styles.legendRow}>
               <View style={styles.legendDot} />
-              <Text style={styles.legendText}>gel (g)</Text>
+              <Text style={styles.legendText}>{t("gelShort")}</Text>
             </View>
           </View>
 
           {loading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color="#2E7D32" />
-              <Text style={styles.loadingText}>Calculating forecast…</Text>
+              <Text style={styles.loadingText}>{t("calculatingForecast")}</Text>
             </View>
           ) : error ? (
             <View style={styles.errorBox}>
@@ -432,7 +450,6 @@ export default function YieldHistoryScreen() {
           )}
         </Animated.View>
 
-        {/* ── Insights Card ── */}
         <Animated.View
           style={[styles.insightsCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -440,7 +457,7 @@ export default function YieldHistoryScreen() {
             <View style={styles.insightsIconWrapper}>
               <MaterialCommunityIcons name="lightbulb-on" size={24} color="#FF9800" />
             </View>
-            <Text style={styles.insightsTitle}>Forecast Insight</Text>
+            <Text style={styles.insightsTitle}>{t("forecastInsight")}</Text>
           </View>
           <View style={styles.insightsList}>
             <View style={styles.insightItem}>
@@ -450,19 +467,18 @@ export default function YieldHistoryScreen() {
             <View style={styles.insightItem}>
               <View style={styles.insightDot} />
               <Text style={styles.insightText}>
-                Peak yield of {stats.max.toFixed(1)}g expected — plan harvest window accordingly.
+                {t("peakYieldOf")} {stats.max.toFixed(1)}g {t("expectedPlanHarvestWindow")}
               </Text>
             </View>
             <View style={styles.insightItem}>
               <View style={styles.insightDot} />
               <Text style={styles.insightText}>
-                Farm-wide average estimated at {stats.avgTotalKg} kg across {plantCount} plants.
+                {t("farmWideAverageEstimatedAt")} {stats.avgTotalKg} kg {t("across")} {plantCount} {t("plants")}
               </Text>
             </View>
           </View>
         </Animated.View>
 
-        {/* ── Hero Total Card ── */}
         <Animated.View
           style={[styles.mainCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
         >
@@ -476,19 +492,18 @@ export default function YieldHistoryScreen() {
               <View style={styles.mainCardIconWrapper}>
                 <MaterialCommunityIcons name="chart-bell-curve" size={26} color="#FFFFFF" />
               </View>
-              <Text style={styles.mainLabel}>Avg Farm Forecast</Text>
+              <Text style={styles.mainLabel}>{t("avgFarmForecast")}</Text>
             </View>
             <Text style={styles.mainValue}>{stats.avgTotalKg} kg</Text>
             <View style={styles.mainCardFooter}>
               <Ionicons name="information-circle" size={16} color="rgba(255,255,255,0.8)" />
               <Text style={styles.mainNote}>
-                Based on {forecastData.length} predicted data points
+                {t("basedOnPredictedDataPoints")} {forecastData.length}
               </Text>
             </View>
           </LinearGradient>
         </Animated.View>
 
-        {/* ── Breakdown List ── */}
         <Animated.View
           style={[styles.listCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -497,8 +512,8 @@ export default function YieldHistoryScreen() {
               <MaterialCommunityIcons name="format-list-bulleted" size={20} color="#2E7D32" />
             </View>
             <View>
-              <Text style={styles.insightsTitle}>Forecast Breakdown</Text>
-              <Text style={styles.chartSub}>{forecastData.length} data points</Text>
+              <Text style={styles.insightsTitle}>{t("forecastBreakdown")}</Text>
+              <Text style={styles.chartSub}>{forecastData.length} {t("dataPoints")}</Text>
             </View>
           </View>
 
@@ -522,12 +537,12 @@ export default function YieldHistoryScreen() {
                     <Text style={styles.listDay}>{item.label}</Text>
                     {isPeak && (
                       <View style={styles.peakBadge}>
-                        <Text style={styles.peakBadgeText}>Peak</Text>
+                        <Text style={styles.peakBadgeText}>{t("peak")}</Text>
                       </View>
                     )}
                   </View>
                   <Text style={styles.listDate}>
-                    {new Date(item.dateISO).toLocaleDateString("en-US", {
+                    {new Date(item.dateISO).toLocaleDateString(language === "si" ? "si-LK" : "en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -553,12 +568,10 @@ export default function YieldHistoryScreen() {
           })}
         </Animated.View>
 
-        {/* ── Footer ── */}
         <View style={styles.footerNote}>
           <Ionicons name="information-circle-outline" size={16} color="#9E9E9E" />
           <Text style={styles.footerText}>
-            Forecast values are generated from the trained yield model using future target
-            timestamps and current farm conditions. Predictions only — not guaranteed outcomes.
+            {t("forecastFooterNote")}
           </Text>
         </View>
       </ScrollView>
@@ -566,13 +579,11 @@ export default function YieldHistoryScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
   content: { padding: 20, paddingTop: 60, paddingBottom: 40 },
 
-  // Header
   header: { marginBottom: 20 },
   headerTop: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
   headerIconWrapper: {
@@ -619,7 +630,6 @@ const styles = StyleSheet.create({
   },
   infoPillText: { fontSize: 11, fontWeight: "600", color: "#4E6E4E" },
 
-  // Toggle
   toggle: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
@@ -637,7 +647,6 @@ const styles = StyleSheet.create({
   toggleText: { fontSize: 13, fontWeight: "600", color: "#9E9E9E" },
   toggleTextActive: { color: "#FFFFFF" },
 
-  // Stats Grid
   statsGrid: { flexDirection: "row", gap: 12, marginBottom: 16 },
   statCard: {
     flex: 1,
@@ -656,13 +665,11 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 22, fontWeight: "800", color: "#1B5E20", marginBottom: 2, letterSpacing: -0.5 },
   statSubtext: { fontSize: 10, color: "#BDBDBD", fontWeight: "500" },
 
-  // Trend
   trendRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 20 },
   trendPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 100 },
   trendText: { fontSize: 12, fontWeight: "700" },
   trendNote: { fontSize: 12, color: "#9E9E9E", fontWeight: "500" },
 
-  // Chart Card
   chartCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
@@ -686,7 +693,6 @@ const styles = StyleSheet.create({
   errorBox: { height: 120, justifyContent: "center", alignItems: "center", gap: 10 },
   errorText: { fontSize: 13, color: "#F44336", textAlign: "center", lineHeight: 20 },
 
-  // Main Hero Card
   mainCard: {
     marginBottom: 20,
     borderRadius: 24,
@@ -705,7 +711,6 @@ const styles = StyleSheet.create({
   mainCardFooter: { flexDirection: "row", alignItems: "center", gap: 6 },
   mainNote: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: "500" },
 
-  // Insights Card
   insightsCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -725,7 +730,6 @@ const styles = StyleSheet.create({
   insightDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#FF9800", marginTop: 7 },
   insightText: { flex: 1, fontSize: 14, color: "#4E6E4E", lineHeight: 20 },
 
-  // List Card
   listCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -759,7 +763,6 @@ const styles = StyleSheet.create({
   peakBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: "#E8F5E9" },
   peakBadgeText: { fontSize: 9, fontWeight: "700", color: "#2E7D32", letterSpacing: 0.5 },
 
-  // Footer
   footerNote: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#F5F5F5", padding: 14, borderRadius: 12 },
   footerText: { flex: 1, fontSize: 12, color: "#9E9E9E", lineHeight: 18, fontWeight: "400" },
 });

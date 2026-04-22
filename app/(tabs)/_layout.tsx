@@ -2,6 +2,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Platform, View, StyleSheet } from "react-native";
+import { useLanguage } from "../../context/LanguageContext";
 
 function TabIcon({
   name,
@@ -28,6 +29,8 @@ function TabIcon({
 }
 
 export default function TabsLayout() {
+  const { t } = useLanguage();
+
   return (
     <Tabs
       screenOptions={{
@@ -43,7 +46,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Home",
+          title: t("home"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="house.fill" color={color} focused={focused} lib="symbol" />
           ),
@@ -53,7 +56,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="chatbot"
         options={{
-          title: "Assistant",
+          title: t("assistant"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="chatbubbles" color={color} focused={focused} />
           ),
@@ -63,7 +66,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="live-stats"
         options={{
-          title: "Live Stats",
+          title: t("liveStats"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="bar-chart-outline" color={color} focused={focused} />
           ),
@@ -73,7 +76,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="about"
         options={{
-          title: "About",
+          title: t("about"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="information-circle" color={color} focused={focused} />
           ),
