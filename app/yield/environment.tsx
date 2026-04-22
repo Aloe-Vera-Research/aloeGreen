@@ -176,19 +176,33 @@ export default function EnvironmentScreen() {
   }, []);
 
   const temperature = sensorData?.temperature_c ?? 0;
-  const soilMoistureRaw = sensorData?.soil_moisture_raw ?? 0;
-  const humidity = sensorData?.humidity_pct ?? 0;
-  const rainfall = sensorData?.rainfall_mm ?? 0;
-  const lux = sensorData?.light_lux ?? 0;
-  const soilPH = sensorData?.soil_ph ?? 0;
-  const soilEC = sensorData?.soil_ec ?? 0;
-  const nitrogen = sensorData?.nitrogen ?? 0;
-  const phosphorus = sensorData?.phosphorus ?? 0;
-  const potassium = sensorData?.potassium ?? 0;
+const soilMoistureRaw = sensorData?.soil_moisture_raw ?? 0;
+const humidity = sensorData?.humidity_pct ?? 0;
+const rainfall = sensorData?.rainfall_mm ?? 0;
 
-  const dhtOk = sensorData?.dht_ok ?? false;
-  const lightOk = sensorData?.light_ok ?? false;
-  const modbusOk = sensorData?.modbus_ok ?? false;
+const lux = sensorData?.light_lux;
+const soilPH = sensorData?.soil_ph;
+const soilEC = sensorData?.soil_ec;
+const nitrogen = sensorData?.nitrogen;
+const phosphorus = sensorData?.phosphorus;
+const potassium = sensorData?.potassium;
+
+  const dhtOk =
+  sensorData?.dht_ok ??
+  (sensorData?.temperature_c != null && sensorData?.humidity_pct != null);
+  const lightOk =
+  sensorData?.light_ok ??
+  (sensorData?.light_lux != null);
+
+const modbusOk =
+  sensorData?.modbus_ok ??
+  (
+    sensorData?.soil_ph != null ||
+    sensorData?.soil_ec != null ||
+    sensorData?.nitrogen != null ||
+    sensorData?.phosphorus != null ||
+    sensorData?.potassium != null
+  );
 
   const soilMoisturePercent = useMemo(() => {
     const percent = ((4095 - soilMoistureRaw) / 4095) * 100;
@@ -591,22 +605,57 @@ export default function EnvironmentScreen() {
       </View>
 
       <View style={styles.analysisSection}>
-        <Text style={styles.sectionTitle}>Additional Readings</Text>
-        <View style={styles.analysisCard}>
-          <Text style={styles.analysisLabel}>Device: {sensorData?.device_id ?? "--"}</Text>
-          <Text style={styles.analysisLabel}>Messages Received: {messageCount}</Text>
-          <Text style={styles.analysisLabel}>Light: {lightOk ? Number(lux).toFixed(0) : "--"} lx</Text>
-          <Text style={styles.analysisLabel}>Soil pH: {modbusOk ? Number(soilPH).toFixed(1) : "--"}</Text>
-          <Text style={styles.analysisLabel}>Soil EC: {modbusOk ? soilEC : "--"}</Text>
-          <Text style={styles.analysisLabel}>Nitrogen: {modbusOk ? nitrogen : "--"}</Text>
-          <Text style={styles.analysisLabel}>Phosphorus: {modbusOk ? phosphorus : "--"}</Text>
-          <Text style={styles.analysisLabel}>Potassium: {modbusOk ? potassium : "--"}</Text>
-          <Text style={styles.analysisLabel}>WiFi RSSI: {sensorData?.wifi_rssi ?? "--"} dBm</Text>
-          <Text style={styles.analysisLabel}>DHT Status: {dhtOk ? "OK" : "FAIL"}</Text>
-          <Text style={styles.analysisLabel}>Light Status: {lightOk ? "OK" : "FAIL"}</Text>
-          <Text style={styles.analysisLabel}>RS485 Status: {modbusOk ? "OK" : "FAIL"}</Text>
-        </View>
-      </View>
+  <Text style={styles.sectionTitle}>Additional Readings</Text>
+  <View style={styles.analysisCard}>
+    <Text style={styles.analysisLabel}>
+      Device: {sensorData?.device_id ?? "--"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Messages Received: {messageCount}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Light: {lux != null ? Number(lux).toFixed(0) : "--"} lx
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Soil pH: {soilPH != null ? Number(soilPH).toFixed(1) : "--"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Soil EC: {soilEC != null ? soilEC : "--"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Nitrogen: {nitrogen != null ? nitrogen : "--"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Phosphorus: {phosphorus != null ? phosphorus : "--"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Potassium: {potassium != null ? potassium : "--"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      WiFi RSSI: {sensorData?.wifi_rssi ?? "--"} dBm
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      DHT Status: {dhtOk ? "OK" : "FAIL"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      Light Status: {lightOk ? "OK" : "FAIL"}
+    </Text>
+
+    <Text style={styles.analysisLabel}>
+      RS485 Status: {modbusOk ? "OK" : "FAIL"}
+    </Text>
+  </View>
+</View>
 
       <View style={styles.footer}>
         <View style={styles.syncIndicator}>

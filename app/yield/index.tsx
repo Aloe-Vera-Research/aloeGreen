@@ -61,7 +61,7 @@ export default function YieldDashboard() {
       const payload = buildPredictionPayload(farmConfig, ageMonths);
       console.log("Prediction payload:", payload);
 
-      const response = await fetch("http://192.168.1.35:8000/yield/predict", {
+      const response = await fetch("http://192.168.8.158:8000/yield/predict", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

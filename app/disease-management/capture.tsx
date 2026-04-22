@@ -16,7 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 
 export default function CaptureLeafScreen() {
   // const API_URL = "http://192.168.1.4:8000/api/detect";
-  const API_URL = "http://192.168.1.4:8000/api/disease/detect";
+  const API_URL = "http://192.168.8.158:8000/api/disease/detect";
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);

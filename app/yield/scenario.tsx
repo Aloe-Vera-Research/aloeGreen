@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE_URL = "http://192.168.1.35:8000";
+const API_BASE_URL = "http://192.168.8.158:8000";
 
 export default function ScenarioScreen() {
   // 🔧 Base values (from ML model – prototype)

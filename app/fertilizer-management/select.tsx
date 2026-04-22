@@ -76,7 +76,7 @@ const MQTT_USERNAME = "eesara";
 const MQTT_PASSWORD = "Eesara@123";
 
 // Change only this if needed
-const PREDICT_URL = "http://172.20.10.5:8000/api/fertilizer/predict";
+const PREDICT_URL = "http://192.168.8.158:8000/api/fertilizer/predict";
 
 export default function FertilizerScreen() {
   const router = useRouter();
@@ -186,6 +186,15 @@ export default function FertilizerScreen() {
       try {
         const parsed: SensorPayload = JSON.parse(message.toString());
         console.log("MQTT payload:", parsed);
+        console.log("temperature_c:", parsed.temperature_c);
+        console.log("humidity_pct:", parsed.humidity_pct);
+        console.log("soil_ph:", parsed.soil_ph);
+        console.log("nitrogen:", parsed.nitrogen);
+        console.log("phosphorus:", parsed.phosphorus);
+        console.log("potassium:", parsed.potassium);
+        console.log("dht_ok:", parsed.dht_ok);
+        console.log("modbus_ok:", parsed.modbus_ok);
+
         setSensorData(parsed);
       } catch (e) {
         console.log("Invalid MQTT payload:", e);
@@ -204,12 +213,24 @@ export default function FertilizerScreen() {
     return Math.max(0, Math.min(100, percent));
   }, [sensorData?.soil_moisture_raw]);
 
-  const temperature = sensorData?.dht_ok ? sensorData?.temperature_c ?? 0 : 0;
-  const humidity = sensorData?.dht_ok ? sensorData?.humidity_pct ?? 0 : 0;
-  const soilPH = sensorData?.modbus_ok ? sensorData?.soil_ph ?? 0 : 0;
-  const nitrogen = sensorData?.modbus_ok ? sensorData?.nitrogen ?? 0 : 0;
-  const phosphorus = sensorData?.modbus_ok ? sensorData?.phosphorus ?? 0 : 0;
-  const potassium = sensorData?.modbus_ok ? sensorData?.potassium ?? 0 : 0;
+  const dhtOk =
+    sensorData?.dht_ok ??
+    (sensorData?.temperature_c != null && sensorData?.humidity_pct != null);
+
+  const modbusOk =
+    sensorData?.modbus_ok ??
+    (sensorData?.soil_ph != null ||
+      sensorData?.nitrogen != null ||
+      sensorData?.phosphorus != null ||
+      sensorData?.potassium != null);
+
+  const temperature = dhtOk ? (sensorData?.temperature_c ?? 0) : 0;
+  const humidity = dhtOk ? (sensorData?.humidity_pct ?? 0) : 0;
+
+  const soilPH = modbusOk ? (sensorData?.soil_ph ?? 0) : 0;
+  const nitrogen = modbusOk ? (sensorData?.nitrogen ?? 0) : 0;
+  const phosphorus = modbusOk ? (sensorData?.phosphorus ?? 0) : 0;
+  const potassium = modbusOk ? (sensorData?.potassium ?? 0) : 0;
 
   const getNPKLevel = (value: number) => {
     if (value >= 60) return "High";
@@ -330,7 +351,7 @@ export default function FertilizerScreen() {
       console.log("Prediction error:", error);
       Alert.alert(
         "Prediction Error",
-        error?.message || "Failed to generate fertilizer plan"
+        error?.message || "Failed to generate fertilizer plan",
       );
     } finally {
       setPredicting(false);
@@ -359,7 +380,9 @@ export default function FertilizerScreen() {
           </View>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Fertilizer Plan</Text>
-            <Text style={styles.headerSubtitle}>Optimize your crop nutrition</Text>
+            <Text style={styles.headerSubtitle}>
+              Optimize your crop nutrition
+            </Text>
           </View>
         </View>
 
@@ -413,7 +436,10 @@ export default function FertilizerScreen() {
                     }}
                   >
                     <TouchableOpacity
-                      style={[styles.option, soil === item.id && styles.optionSelected]}
+                      style={[
+                        styles.option,
+                        soil === item.id && styles.optionSelected,
+                      ]}
                       onPress={() => setSoil(item.id)}
                       activeOpacity={0.7}
                     >
@@ -439,7 +465,11 @@ export default function FertilizerScreen() {
                       </View>
                       {soil === item.id && (
                         <View style={styles.checkmark}>
-                          <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#2E7D32"
+                          />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -476,7 +506,10 @@ export default function FertilizerScreen() {
                     }}
                   >
                     <TouchableOpacity
-                      style={[styles.option, stage === item.id && styles.optionSelected]}
+                      style={[
+                        styles.option,
+                        stage === item.id && styles.optionSelected,
+                      ]}
                       onPress={() => setStage(item.id)}
                       activeOpacity={0.7}
                     >
@@ -502,7 +535,11 @@ export default function FertilizerScreen() {
                       </View>
                       {stage === item.id && (
                         <View style={styles.checkmark}>
-                          <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#2E7D32"
+                          />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -536,7 +573,9 @@ export default function FertilizerScreen() {
               {!sensorData ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#2E7D32" />
-                  <Text style={styles.loadingText}>Waiting for MQTT sensor values...</Text>
+                  <Text style={styles.loadingText}>
+                    Waiting for MQTT sensor values...
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.iotDataContainer}>
@@ -547,7 +586,9 @@ export default function FertilizerScreen() {
                       {
                         icon: "thermometer",
                         label: "Temperature",
-                        value: sensorData?.dht_ok ? `${Number(temperature).toFixed(1)}°C` : "--",
+                        value: dhtOk
+                          ? `${Number(temperature).toFixed(1)}°C`
+                          : "--",
                       },
                       {
                         icon: "water",
@@ -557,17 +598,21 @@ export default function FertilizerScreen() {
                       {
                         icon: "beaker",
                         label: "Soil pH",
-                        value: sensorData?.modbus_ok ? Number(soilPH).toFixed(1) : "--",
+                        value: modbusOk ? Number(soilPH).toFixed(1) : "--",
                       },
                       {
                         icon: "cloud",
                         label: "Humidity",
-                        value: sensorData?.dht_ok ? `${Number(humidity).toFixed(1)}%` : "--",
+                        value: dhtOk ? `${Number(humidity).toFixed(1)}%` : "--",
                       },
                     ].map((item, index) => (
                       <View key={index} style={styles.dataCard}>
                         <View style={styles.dataIconWrapper}>
-                          <Ionicons name={item.icon as any} size={24} color="#2E7D32" />
+                          <Ionicons
+                            name={item.icon as any}
+                            size={24}
+                            color="#2E7D32"
+                          />
                         </View>
                         <Text style={styles.dataLabel}>{item.label}</Text>
                         <Text style={styles.dataValue}>{item.value}</Text>
@@ -578,9 +623,21 @@ export default function FertilizerScreen() {
                   <Text style={styles.sectionTitle}>NPK Levels</Text>
                   <View style={styles.npkContainer}>
                     {[
-                      { label: "Nitrogen (N)", value: nitrogen, color: "#4CAF50" },
-                      { label: "Phosphorus (P)", value: phosphorus, color: "#FF9800" },
-                      { label: "Potassium (K)", value: potassium, color: "#2196F3" },
+                      {
+                        label: "Nitrogen (N)",
+                        value: nitrogen,
+                        color: "#4CAF50",
+                      },
+                      {
+                        label: "Phosphorus (P)",
+                        value: phosphorus,
+                        color: "#FF9800",
+                      },
+                      {
+                        label: "Potassium (K)",
+                        value: potassium,
+                        color: "#2196F3",
+                      },
                     ].map((item, index) => {
                       const level = getNPKLevel(item.value);
                       return (
@@ -595,8 +652,8 @@ export default function FertilizerScreen() {
                                     level === "High"
                                       ? "#4CAF50"
                                       : level === "Medium"
-                                      ? "#FF9800"
-                                      : "#F44336",
+                                        ? "#FF9800"
+                                        : "#F44336",
                                 },
                               ]}
                             >
@@ -652,7 +709,9 @@ export default function FertilizerScreen() {
                 ? styles.buttonDisabled
                 : null,
             ]}
-            disabled={(step === 1 && !soil) || (step === 2 && !stage) || predicting}
+            disabled={
+              (step === 1 && !soil) || (step === 2 && !stage) || predicting
+            }
             onPress={handleNext}
             activeOpacity={0.85}
           >
@@ -691,31 +750,66 @@ export default function FertilizerScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
-  header: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 12 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 12,
+  },
   headerBackButton: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerIconWrapper: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerTextContainer: { flex: 1 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#1B5E20" },
   headerSubtitle: { fontSize: 14, color: "#2E7D32", fontWeight: "500" },
-  connectionRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 18 },
+  connectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 18,
+  },
   connectionDot: { width: 8, height: 8, borderRadius: 4 },
   connectionText: { fontSize: 13, color: "#616161", fontWeight: "500" },
   stepIndicatorContainer: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    marginBottom: 24, paddingHorizontal: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingHorizontal: 10,
   },
   stepItem: { flex: 1, alignItems: "center", position: "relative" },
   stepCircle: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
-    borderWidth: 2, borderColor: "#C8E6C9", justifyContent: "center", alignItems: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#C8E6C9",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 6,
   },
   stepCircleActive: { borderColor: "#2E7D32", backgroundColor: "#E8F5E9" },
@@ -724,83 +818,202 @@ const styles = StyleSheet.create({
   stepNumberActive: { color: "#FFFFFF" },
   stepLabel: { fontSize: 12, color: "#4E6E4E", fontWeight: "600" },
   stepConnector: {
-    position: "absolute", top: 20, left: "60%", right: "-60%", height: 2,
-    backgroundColor: "#C8E6C9", zIndex: -1,
+    position: "absolute",
+    top: 20,
+    left: "60%",
+    right: "-60%",
+    height: 2,
+    backgroundColor: "#C8E6C9",
+    zIndex: -1,
   },
   stepConnectorActive: { backgroundColor: "#2E7D32" },
   card: {
-    backgroundColor: "#FFFFFF", borderRadius: 24, padding: 24, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16,
-    elevation: 8, marginBottom: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    marginBottom: 20,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 8,
+  },
   cardTitle: { fontSize: 22, fontWeight: "700", color: "#1B5E20" },
-  cardDescription: { fontSize: 14, color: "#4E6E4E", marginBottom: 20, lineHeight: 20 },
+  cardDescription: {
+    fontSize: 14,
+    color: "#4E6E4E",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
   optionsContainer: { gap: 12 },
   option: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#F8F9FA",
-    borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "transparent",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: "transparent",
   },
   optionSelected: { backgroundColor: "#E8F5E9", borderColor: "#2E7D32" },
   optionIconWrapper: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", marginRight: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   optionContent: { flex: 1 },
-  optionTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 2 },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1B5E20",
+    marginBottom: 2,
+  },
   optionTitleSelected: { color: "#2E7D32" },
   optionDescription: { fontSize: 13, color: "#4E6E4E" },
   checkmark: { marginLeft: 8 },
   summaryContainer: { flexDirection: "row", gap: 12, marginBottom: 20 },
-  summaryItem: { flex: 1, backgroundColor: "#F1F8F4", borderRadius: 12, padding: 14 },
-  summaryLabel: { fontSize: 12, color: "#4E6E4E", fontWeight: "600", marginBottom: 4 },
+  summaryItem: {
+    flex: 1,
+    backgroundColor: "#F1F8F4",
+    borderRadius: 12,
+    padding: 14,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: "#4E6E4E",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
   summaryValue: { fontSize: 16, fontWeight: "700", color: "#2E7D32" },
   iotDataContainer: { gap: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 12 },
-  dataGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 20 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1B5E20",
+    marginBottom: 12,
+  },
+  dataGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 20,
+  },
   dataCard: {
-    flex: 1, minWidth: "45%", backgroundColor: "#F8F9FA", borderRadius: 12,
-    padding: 14, alignItems: "center",
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
   },
   dataIconWrapper: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: "#E8F5E9",
-    justifyContent: "center", alignItems: "center", marginBottom: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  dataLabel: { fontSize: 12, color: "#4E6E4E", fontWeight: "600", marginBottom: 4 },
+  dataLabel: {
+    fontSize: 12,
+    color: "#4E6E4E",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
   dataValue: { fontSize: 18, fontWeight: "700", color: "#2E7D32" },
   npkContainer: { gap: 14 },
   npkItem: { backgroundColor: "#F8F9FA", borderRadius: 12, padding: 14 },
-  npkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  npkHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   npkLabel: { fontSize: 14, fontWeight: "600", color: "#1B5E20" },
   npkBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
   npkValue: { fontSize: 12, fontWeight: "700", color: "#FFFFFF" },
-  npkBar: { height: 8, backgroundColor: "#E0E0E0", borderRadius: 4, overflow: "hidden" },
+  npkBar: {
+    height: 8,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
   npkBarFill: { height: "100%", borderRadius: 4 },
   buttonContainer: { flexDirection: "row", gap: 12 },
   backButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    backgroundColor: "#FFFFFF", paddingVertical: 16, paddingHorizontal: 24,
-    borderRadius: 16, gap: 8, flex: 1, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 8,
+    flex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   backButtonText: { color: "#2E7D32", fontSize: 15, fontWeight: "700" },
   homeButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    backgroundColor: "#FFFFFF", paddingVertical: 16, paddingHorizontal: 24,
-    borderRadius: 16, gap: 8, flex: 1, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 8,
+    flex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   homeButtonText: { color: "#2E7D32", fontSize: 15, fontWeight: "700" },
   nextButton: {
-    flex: 2, borderRadius: 16, overflow: "hidden", shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+    flex: 2,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   buttonDisabled: { shadowOpacity: 0.1 },
   nextButtonGradient: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingVertical: 16, paddingHorizontal: 24, gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 8,
   },
   nextButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  loadingContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 24 },
-  loadingText: { marginTop: 12, fontSize: 14, color: "#4E6E4E", fontWeight: "500" },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#4E6E4E",
+    fontWeight: "500",
+  },
 });

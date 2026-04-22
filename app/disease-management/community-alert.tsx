@@ -99,7 +99,7 @@ export default function CommunityAlertScreen() {
       };
 
       const response = await fetch(
-        "http://192.168.1.4:8000/api/community-alert/send-email",
+        "http://192.168.8.158:8000/api/community-alert/send-email",
         {
           method: "POST",
           headers: {

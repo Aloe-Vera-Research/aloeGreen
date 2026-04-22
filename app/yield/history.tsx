@@ -16,7 +16,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
-const API_BASE_URL = "http://192.168.1.35:8000";
+const API_BASE_URL = "http://192.168.8.158:8000";
 
 const soilTextureMap: Record<string, number> = {
   Loamy: 1,

@@ -134,7 +134,7 @@ export default function AnalyzingScreen() {
   }, []);
 
   const analyzeImage = async () => {
-    const API_URL = "http://192.168.1.4:8000/api/disease/detect";
+    const API_URL = "http://192.168.8.158:8000/api/disease/detect";
     
     try {
       const formData = new FormData();
