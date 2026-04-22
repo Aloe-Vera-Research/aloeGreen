@@ -911,6 +911,27 @@ yieldImpact: "Yield Impact",
 marketPriceImpact: "Market Price Impact",
 currentData: "Current Data",
 recommendedActions: "Recommended Actions",
+
+// ====================
+// Chatbot Screen
+// ====================
+
+aloeGreenAi: "AloeGreen AI",
+smartAloeVeraAssistant: "Smart Aloe Vera Assistant",
+online: "Online",
+
+chatHiIAmAloeGreenAi: "Hi, I'm AloeGreen AI",
+chatExpertCompanion:
+  "Your expert companion for Aloe Vera farming. Ask me anything!",
+
+diseaseDetection: "Disease Detection",
+yieldForecasting: "Yield Forecast",
+fertilizerPlan: "Fertilizer Plan",
+pricePrediction: "Price Prediction",
+
+askAboutAloeVeraFarming: "Ask about Aloe Vera farming…",
+chatSomethingWentWrong: "Something went wrong. Please try again.",
+noResponse: "No response",
 };
 
 export default en;

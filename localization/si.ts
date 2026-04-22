@@ -3,7 +3,7 @@ const si = {
   back: "ආපසු",
   getStarted: "ආරම්භ කරන්න",
 
-  appName: "ඇලෝ ග්‍රීන්",
+  appName: "AloeGreen",
   appSubtitle: "කෝමාරිකා සඳහා බුද්ධිමත් සහාය පද්ධතිය",
 
   selectLanguage: "කරුණාකර ඔබගේ භාෂාව තෝරන්න",
@@ -907,6 +907,27 @@ yieldImpact: "අස්වැන්නට බලපෑම",
 marketPriceImpact: "වෙළඳපල මිලට බලපෑම",
 currentData: "වත්මන් දත්ත",
 recommendedActions: "නිර්දේශිත ක්‍රියාමාර්ග",
+
+// ====================
+// Chatbot Screen
+// ====================
+
+aloeGreenAi: "AloeGreen AI",
+smartAloeVeraAssistant: "කෝමාරිකා සඳහා බුද්ධිමත් සහායකයා",
+online: "සජීවී",
+
+chatHiIAmAloeGreenAi: "ආයුබෝවන්, මම AloeGreen AI",
+chatExpertCompanion:
+  "කෝමාරිකා වගාව සඳහා ඔබගේ විශේෂඥ සහායකයා. මගෙන් ඕනෑම දෙයක් අහන්න!",
+
+diseaseDetection: "රෝග හඳුනාගැනීම",
+yieldForecasting: "අස්වැන්න පුරෝකථනය",
+fertilizerPlan: "පොහොර සැලැස්ම",
+pricePrediction: "මිල පුරෝකථනය",
+
+askAboutAloeVeraFarming: "කෝමාරිකා වගාව ගැන අහන්න…",
+chatSomethingWentWrong: "යම් දෝෂයක් සිදුවිය. කරුණාකර නැවත උත්සාහ කරන්න.",
+noResponse: "පිළිතුරක් නොමැත",
 };
 
 export default si;

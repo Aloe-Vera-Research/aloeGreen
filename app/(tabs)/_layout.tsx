@@ -29,7 +29,7 @@ function TabIcon({
 }
 
 export default function TabsLayout() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <Tabs
@@ -47,6 +47,7 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: t("home"),
+          tabBarLabel: t("home"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="house.fill" color={color} focused={focused} lib="symbol" />
           ),
@@ -57,6 +58,7 @@ export default function TabsLayout() {
         name="chatbot"
         options={{
           title: t("assistant"),
+          tabBarLabel: t("assistant"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="chatbubbles" color={color} focused={focused} />
           ),
@@ -64,19 +66,20 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="live-stats"
-        options={{
-          title: t("liveStats"),
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="bar-chart-outline" color={color} focused={focused} />
-          ),
-        }}
-      />
+  name="live-stats/index"
+  options={{
+    title: t("liveStats"),
+    tabBarIcon: ({ color, focused }) => (
+      <TabIcon name="bar-chart-outline" color={color} focused={focused} />
+    ),
+  }}
+/>
 
       <Tabs.Screen
         name="about"
         options={{
           title: t("about"),
+          tabBarLabel: t("about"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="information-circle" color={color} focused={focused} />
           ),
@@ -90,10 +93,10 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: "#FFFFFF",
     borderTopWidth: 0,
-    height: Platform.OS === "ios" ? 88 : 68,
+    height: Platform.OS === "ios" ? 92 : 72,
     paddingBottom: Platform.OS === "ios" ? 28 : 10,
     paddingTop: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     shadowColor: "#1B5E20",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
@@ -104,10 +107,10 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
-    letterSpacing: 0.2,
     marginTop: 2,
+    textAlign: "center",
   },
   iconWrap: {
     width: 44,

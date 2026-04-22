@@ -5,7 +5,7 @@ import { Language } from "../localization";
 
 export default function LanguageScreen() {
   const router = useRouter();
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage } = useLanguage();
 
   const languages = [
     { label: "English", value: "en" as Language },
@@ -18,7 +18,7 @@ export default function LanguageScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t("selectLanguage")}</Text>
+      <Text style={styles.title}>Please Select Your Language</Text>
 
       <View style={styles.options}>
         {languages.map((lang) => (
@@ -43,7 +43,7 @@ export default function LanguageScreen() {
       </View>
 
       <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-        <Text style={styles.nextButtonText}>{t("next")}</Text>
+        <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>
     </View>
   );

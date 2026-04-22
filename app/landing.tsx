@@ -1,22 +1,20 @@
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useLanguage } from "../context/LanguageContext";
 
 export default function Landing() {
   const router = useRouter();
-  const { t } = useLanguage();
 
   return (
     <View style={styles.container}>
       <Image source={require("../assets/images/icon.png")} style={styles.logo} />
-      <Text style={styles.title}>{t("appName")}</Text>
-      <Text style={styles.subtitle}>{t("appSubtitle")}</Text>
+      <Text style={styles.title}>Aloe Green</Text>
+      <Text style={styles.subtitle}>Smart Support System for Aloe Vera</Text>
 
       <TouchableOpacity
         style={styles.button}
         onPress={() => router.push("/language")}
       >
-        <Text style={styles.buttonText}>{t("getStarted")}</Text>
+        <Text style={styles.buttonText}>Get Started</Text>
       </TouchableOpacity>
     </View>
   );
