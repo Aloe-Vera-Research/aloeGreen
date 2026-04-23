@@ -12,12 +12,15 @@ import {
 } from "react-native";
 import { BarChart, LineChart } from "react-native-chart-kit";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from "../../context/LanguageContext";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function AnalyzerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t } = useLanguage();
+
   const [selectedPeriod, setSelectedPeriod] = useState("4W");
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -56,7 +59,7 @@ export default function AnalyzerScreen() {
   const chartWidth = screenWidth - 60;
 
   const usageData = {
-    labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+    labels: [t("week1"), t("week2"), t("week3"), t("week4")],
     datasets: [
       {
         data: [
@@ -72,7 +75,7 @@ export default function AnalyzerScreen() {
   };
 
   const npkData = {
-    labels: ["Nitrogen", "Phosphorus", "Potassium"],
+    labels: [t("nitrogen"), t("phosphorus"), t("potassium")],
     datasets: [{ data: [nValue, pValue, kValue] }],
   };
 
@@ -89,28 +92,28 @@ export default function AnalyzerScreen() {
   const stats = [
     {
       icon: "trending-up",
-      label: "Total Usage",
+      label: t("totalUsage"),
       value: `${totalUsage}g`,
-      subtext: "Estimated",
+      subtext: t("estimated"),
       color: "#4CAF50",
     },
     {
       icon: "calendar",
-      label: "Avg. Weekly",
+      label: t("avgWeekly"),
       value: `${avgUsage}g`,
-      subtext: "Per week",
+      subtext: t("perWeek"),
       color: "#2196F3",
     },
     {
       icon: "leaf",
-      label: "Efficiency",
+      label: t("efficiency"),
       value: `${efficiency}%`,
-      subtext: "NPK based",
+      subtext: t("npkBased"),
       color: "#FF9800",
     },
     {
       icon: "flash",
-      label: "Plant Stage",
+      label: t("plantStage"),
       value: stage,
       subtext: soilType,
       color: "#9C27B0",
@@ -121,35 +124,35 @@ export default function AnalyzerScreen() {
     prediction?.insights ||
     [
       {
-        week: "Insight 1",
+        week: t("insight1"),
         advice:
           nValue < 30
-            ? "Nitrogen is low. Increase nitrogen-support fertilizer."
-            : "Nitrogen level is in a safer range.",
+            ? t("analyzerNitrogenLow")
+            : t("analyzerNitrogenSafe"),
         priority: nValue < 30 ? "high" : "low",
         icon: nValue < 30 ? "warning" : "checkmark-circle",
       },
       {
-        week: "Insight 2",
+        week: t("insight2"),
         advice:
           pValue < 30
-            ? "Phosphorus is low. Consider phosphorus-rich application."
-            : "Phosphorus level is acceptable.",
+            ? t("analyzerPhosphorusLow")
+            : t("analyzerPhosphorusAcceptable"),
         priority: pValue < 30 ? "medium" : "low",
         icon: pValue < 30 ? "arrow-up-circle" : "checkmark-circle",
       },
       {
-        week: "Insight 3",
+        week: t("insight3"),
         advice:
           kValue < 30
-            ? "Potassium is low. Potassium support may be required."
-            : "Potassium level is healthy.",
+            ? t("analyzerPotassiumLow")
+            : t("analyzerPotassiumHealthy"),
         priority: kValue < 30 ? "medium" : "low",
         icon: kValue < 30 ? "warning" : "information-circle",
       },
       {
-        week: "Insight 4",
-        advice: `For ${soilType} soil and ${stage} stage plants, continue monitoring weekly for stable nutrition balance.`,
+        week: t("insight4"),
+        advice: t("analyzerGeneralAdvice", { soil: soilType, stage } as any),
         priority: "low",
         icon: "information-circle",
       },
@@ -169,9 +172,9 @@ export default function AnalyzerScreen() {
   };
 
   const getStatus = (value: number) => {
-    if (value >= 60) return "High";
-    if (value >= 30) return "Good";
-    return "Low";
+    if (value >= 60) return t("high");
+    if (value >= 30) return t("good");
+    return t("low");
   };
 
   const periods = ["1W", "4W", "3M", "1Y"];
@@ -204,8 +207,8 @@ export default function AnalyzerScreen() {
               <Ionicons name="analytics" size={28} color="#2E7D32" />
             </View>
             <View>
-              <Text style={styles.headerTitle}>Usage Analyzer</Text>
-              <Text style={styles.headerSubtitle}>Track & optimize fertilizer</Text>
+              <Text style={styles.headerTitle}>{t("usageAnalyzer")}</Text>
+              <Text style={styles.headerSubtitle}>{t("trackOptimizeFertilizer")}</Text>
             </View>
           </View>
         </Animated.View>
@@ -284,13 +287,13 @@ export default function AnalyzerScreen() {
                 <Ionicons name="trending-up" size={24} color="#2E7D32" />
               </View>
               <View>
-                <Text style={styles.chartTitle}>Usage Trend</Text>
-                <Text style={styles.chartSubtitle}>Estimated fertilizer usage</Text>
+                <Text style={styles.chartTitle}>{t("usageTrend")}</Text>
+                <Text style={styles.chartSubtitle}>{t("estimatedFertilizerUsage")}</Text>
               </View>
             </View>
             <View style={styles.chartBadge}>
               <Ionicons name="arrow-up" size={14} color="#4CAF50" />
-              <Text style={styles.chartBadgeText}>Live based</Text>
+              <Text style={styles.chartBadgeText}>{t("liveBased")}</Text>
             </View>
           </View>
 
@@ -330,7 +333,7 @@ export default function AnalyzerScreen() {
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: "#2E7D32" }]} />
-              <Text style={styles.legendText}>Estimated Dosage (grams)</Text>
+              <Text style={styles.legendText}>{t("estimatedDosageGrams")}</Text>
             </View>
           </View>
         </Animated.View>
@@ -347,8 +350,8 @@ export default function AnalyzerScreen() {
                 <MaterialCommunityIcons name="flask" size={24} color="#2E7D32" />
               </View>
               <View>
-                <Text style={styles.chartTitle}>NPK Distribution</Text>
-                <Text style={styles.chartSubtitle}>Current nutrient levels</Text>
+                <Text style={styles.chartTitle}>{t("npkDistribution")}</Text>
+                <Text style={styles.chartSubtitle}>{t("currentNutrientLevels")}</Text>
               </View>
             </View>
           </View>
@@ -381,9 +384,9 @@ export default function AnalyzerScreen() {
 
           <View style={styles.npkLegend}>
             {[
-              { label: "Nitrogen (N)", color: "#4CAF50", status: getStatus(nValue) },
-              { label: "Phosphorus (P)", color: "#FF9800", status: getStatus(pValue) },
-              { label: "Potassium (K)", color: "#2196F3", status: getStatus(kValue) },
+              { label: `${t("nitrogen")} (N)`, color: "#4CAF50", status: getStatus(nValue) },
+              { label: `${t("phosphorus")} (P)`, color: "#FF9800", status: getStatus(pValue) },
+              { label: `${t("potassium")} (K)`, color: "#2196F3", status: getStatus(kValue) },
             ].map((item, index) => (
               <View key={index} style={styles.npkLegendItem}>
                 <View style={[styles.npkLegendDot, { backgroundColor: item.color }]} />
@@ -412,7 +415,7 @@ export default function AnalyzerScreen() {
             <View style={styles.sectionIconWrapper}>
               <MaterialCommunityIcons name="robot" size={24} color="#2E7D32" />
             </View>
-            <Text style={styles.sectionTitle}>AI Insights</Text>
+            <Text style={styles.sectionTitle}>{t("aiInsights")}</Text>
           </View>
 
           {aiRecommendations.map((item: any, index: number) => (
@@ -495,9 +498,9 @@ export default function AnalyzerScreen() {
                 <Ionicons name="add-circle" size={32} color="#FFFFFF" />
               </View>
               <View style={styles.actionCardText}>
-                <Text style={styles.actionCardTitle}>Create New Plan</Text>
+                <Text style={styles.actionCardTitle}>{t("createNewPlan")}</Text>
                 <Text style={styles.actionCardSubtitle}>
-                  Based on latest analysis
+                  {t("basedOnLatestAnalysis")}
                 </Text>
               </View>
             </View>

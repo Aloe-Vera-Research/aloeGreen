@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,11 +11,14 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from "../../context/LanguageContext";
 
 const { width } = Dimensions.get("window");
 
 export default function DiseaseManagementIntro() {
   const router = useRouter();
+  const { t } = useLanguage();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -42,7 +45,6 @@ export default function DiseaseManagementIntro() {
       }),
     ]).start();
 
-    // Subtle rotating animation for the icon
     Animated.loop(
       Animated.sequence([
         Animated.timing(iconRotate, {
@@ -64,34 +66,36 @@ export default function DiseaseManagementIntro() {
     outputRange: ["-5deg", "5deg"],
   });
 
-  const features = [
-    {
-      icon: "scan-circle" as const,
-      title: "AI Detection",
-      description: "Advanced image recognition",
-    },
-    {
-      icon: "shield-checkmark" as const,
-      title: "Early Prevention",
-      description: "Stop disease spread quickly",
-    },
-    {
-      icon: "people" as const,
-      title: "Community Alert",
-      description: "Notify nearby farmers",
-    },
-  ];
+  const features = useMemo(
+    () => [
+      {
+        icon: "scan-circle" as const,
+        title: t("aiDetection"),
+        description: t("advancedImageRecognition"),
+      },
+      {
+        icon: "shield-checkmark" as const,
+        title: t("earlyPrevention"),
+        description: t("stopDiseaseSpreadQuickly"),
+      },
+      {
+        icon: "people" as const,
+        title: t("communityAlert"),
+        description: t("notifyNearbyFarmers"),
+      },
+    ],
+    [t]
+  );
 
   return (
     <LinearGradient
       colors={["#E8F5E9", "#C8E6C9", "#A5D6A7"]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
         <Animated.View
           style={[
             styles.headerSection,
@@ -114,11 +118,10 @@ export default function DiseaseManagementIntro() {
             </View>
           </Animated.View>
 
-          <Text style={styles.mainTitle}>Aloe Vera</Text>
-          <Text style={styles.subtitle}>Disease Detection System</Text>
+          <Text style={styles.mainTitle}>{t("aloeVera")}</Text>
+          <Text style={styles.subtitle}>{t("diseaseDetectionSystem")}</Text>
         </Animated.View>
 
-        {/* Main Card */}
         <Animated.View
           style={[
             styles.card,
@@ -128,14 +131,11 @@ export default function DiseaseManagementIntro() {
             },
           ]}
         >
-          <Text style={styles.cardTitle}>Protect Your Farm</Text>
+          <Text style={styles.cardTitle}>{t("protectYourFarm")}</Text>
           <Text style={styles.description}>
-            Identify Aloe Vera leaf diseases instantly using AI-powered image
-            recognition. Take early action and prevent disease spread across
-            your farm and neighboring areas.
+            {t("diseaseIntroDescription")}
           </Text>
 
-          {/* Feature Pills */}
           <View style={styles.featuresContainer}>
             {features.map((feature, index) => (
               <Animated.View
@@ -168,7 +168,6 @@ export default function DiseaseManagementIntro() {
             ))}
           </View>
 
-          {/* CTA Button */}
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.button}
@@ -181,23 +180,21 @@ export default function DiseaseManagementIntro() {
               style={styles.buttonGradient}
             >
               <Ionicons name="camera" size={24} color="#fff" />
-              <Text style={styles.buttonText}>Start Scanning</Text>
+              <Text style={styles.buttonText}>{t("startScanning")}</Text>
               <Ionicons name="arrow-forward" size={20} color="#fff" />
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Secondary Action */}
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.secondaryButton}
             onPress={() => router.push("/disease-management/history")}
           >
             <Ionicons name="time-outline" size={20} color="#2E7D32" />
-            <Text style={styles.secondaryButtonText}>View Scan History</Text>
+            <Text style={styles.secondaryButtonText}>{t("viewScanHistory")}</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Info Banner */}
         <Animated.View
           style={[
             styles.infoBanner,
@@ -208,7 +205,7 @@ export default function DiseaseManagementIntro() {
         >
           <Ionicons name="information-circle" size={20} color="#1B5E20" />
           <Text style={styles.infoText}>
-            Scan leaves in good lighting for best results
+            {t("scanLeavesGoodLighting")}
           </Text>
         </Animated.View>
       </ScrollView>

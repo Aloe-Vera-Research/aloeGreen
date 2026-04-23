@@ -8,40 +8,41 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
-  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function FarmSetupScreen() {
   const router = useRouter();
+  const { t, language } = useLanguage();
 
   const [farmName, setFarmName] = useState("");
   const [plantCount, setPlantCount] = useState("");
   const [soilType, setSoilType] = useState("Loamy");
   const [plantingDate, setPlantingDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [focusedField, setFocusedField] = useState(null);
+  const [errors, setErrors] = useState<any>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateForm = () => {
-    const newErrors = {};
-    
+    const newErrors: any = {};
+
     if (!farmName.trim()) {
-      newErrors.farmName = "Farm name is required";
+      newErrors.farmName = t("farmNameRequired");
     }
-    
+
     if (!plantCount.trim()) {
-      newErrors.plantCount = "Plant count is required";
+      newErrors.plantCount = t("plantCountRequired");
     } else if (Number(plantCount) <= 0) {
-      newErrors.plantCount = "Plant count must be greater than 0";
+      newErrors.plantCount = t("plantCountGreaterThanZero");
     } else if (Number(plantCount) > 1000000) {
-      newErrors.plantCount = "Plant count seems too high";
+      newErrors.plantCount = t("plantCountTooHigh");
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -63,39 +64,38 @@ export default function FarmSetupScreen() {
       await AsyncStorage.setItem("farmConfigured", "true");
       router.replace("/yield");
     } catch (error) {
-      alert("Error saving farm configuration. Please try again.");
+      alert(t("farmConfigSaveError"));
     }
   };
 
   const soilOptions = [
-    { 
-      type: "Loamy", 
+    {
+      type: "Loamy",
       icon: "leaf-outline",
-      description: "Best for Aloe" 
+      description: t("bestForAloe"),
     },
-    { 
-      type: "Sandy", 
+    {
+      type: "Sandy",
       icon: "water-outline",
-      description: "Good drainage" 
+      description: t("goodDrainage"),
     },
-    { 
-      type: "Clay", 
+    {
+      type: "Clay",
       icon: "fitness-outline",
-      description: "Compact soil" 
+      description: t("compactSoil"),
     },
   ];
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.iconContainer}>
             <LinearGradient
@@ -105,47 +105,47 @@ export default function FarmSetupScreen() {
               <Ionicons name="leaf" size={32} color="#FFFFFF" />
             </LinearGradient>
           </View>
-          <Text style={styles.title}>Farm Setup</Text>
+
+          <Text style={styles.title}>{t("farmSetup")}</Text>
           <Text style={styles.subtitle}>
-            Let's configure your Aloe Vera farm to get started
+            {t("configureFarmToGetStarted")}
           </Text>
-          
-          {/* Progress Indicator */}
+
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <View style={styles.progressFill} />
             </View>
-            <Text style={styles.progressText}>Step 1 of 1</Text>
+            <Text style={styles.progressText}>{t("stepOneOfOne")}</Text>
           </View>
         </View>
 
-        {/* Form Section */}
         <View style={styles.formContainer}>
-          {/* Farm Name */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              Farm Name <Text style={styles.required}>*</Text>
+              {t("farmName")} <Text style={styles.required}>*</Text>
             </Text>
-            <View style={[
-              styles.inputWrapper,
-              focusedField === "farmName" && styles.inputWrapperFocused,
-              errors.farmName && styles.inputWrapperError
-            ]}>
-              <Ionicons 
-                name="home-outline" 
-                size={20} 
-                color={focusedField === "farmName" ? "#2E7D32" : "#9E9E9E"} 
+            <View
+              style={[
+                styles.inputWrapper,
+                focusedField === "farmName" && styles.inputWrapperFocused,
+                errors.farmName && styles.inputWrapperError,
+              ]}
+            >
+              <Ionicons
+                name="home-outline"
+                size={20}
+                color={focusedField === "farmName" ? "#2E7D32" : "#9E9E9E"}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
-                placeholder="Enter your farm name"
+                placeholder={t("enterYourFarmName")}
                 placeholderTextColor="#BDBDBD"
                 value={farmName}
                 onChangeText={(text) => {
                   setFarmName(text);
                   if (errors.farmName) {
-                    setErrors({...errors, farmName: null});
+                    setErrors({ ...errors, farmName: null });
                   }
                 }}
                 onFocus={() => setFocusedField("farmName")}
@@ -157,32 +157,33 @@ export default function FarmSetupScreen() {
             )}
           </View>
 
-          {/* Plant Count */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              Number of Aloe Plants <Text style={styles.required}>*</Text>
+              {t("numberOfAloePlants")} <Text style={styles.required}>*</Text>
             </Text>
-            <View style={[
-              styles.inputWrapper,
-              focusedField === "plantCount" && styles.inputWrapperFocused,
-              errors.plantCount && styles.inputWrapperError
-            ]}>
-              <Ionicons 
-                name="leaf-outline" 
-                size={20} 
-                color={focusedField === "plantCount" ? "#2E7D32" : "#9E9E9E"} 
+            <View
+              style={[
+                styles.inputWrapper,
+                focusedField === "plantCount" && styles.inputWrapperFocused,
+                errors.plantCount && styles.inputWrapperError,
+              ]}
+            >
+              <Ionicons
+                name="leaf-outline"
+                size={20}
+                color={focusedField === "plantCount" ? "#2E7D32" : "#9E9E9E"}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
-                placeholder="e.g., 1200"
+                placeholder={t("plantCountExample")}
                 placeholderTextColor="#BDBDBD"
                 keyboardType="numeric"
                 value={plantCount}
                 onChangeText={(text) => {
                   setPlantCount(text);
                   if (errors.plantCount) {
-                    setErrors({...errors, plantCount: null});
+                    setErrors({ ...errors, plantCount: null });
                   }
                 }}
                 onFocus={() => setFocusedField("plantCount")}
@@ -194,10 +195,9 @@ export default function FarmSetupScreen() {
             )}
           </View>
 
-          {/* Soil Type */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Soil Type</Text>
-            <Text style={styles.helper}>Select the type that best matches your farm</Text>
+            <Text style={styles.label}>{t("soilType")}</Text>
+            <Text style={styles.helper}>{t("selectSoilTypeHelper")}</Text>
             <View style={styles.soilGrid}>
               {soilOptions.map((option) => (
                 <TouchableOpacity
@@ -209,31 +209,47 @@ export default function FarmSetupScreen() {
                   onPress={() => setSoilType(option.type)}
                   activeOpacity={0.7}
                 >
-                  <View style={[
-                    styles.soilIconContainer,
-                    soilType === option.type && styles.soilIconContainerActive
-                  ]}>
-                    <Ionicons 
-                      name={option.icon} 
-                      size={24} 
-                      color={soilType === option.type ? "#FFFFFF" : "#2E7D32"} 
+                  <View
+                    style={[
+                      styles.soilIconContainer,
+                      soilType === option.type && styles.soilIconContainerActive,
+                    ]}
+                  >
+                    <Ionicons
+                      name={option.icon as any}
+                      size={24}
+                      color={soilType === option.type ? "#FFFFFF" : "#2E7D32"}
                     />
                   </View>
-                  <Text style={[
-                    styles.soilTitle,
-                    soilType === option.type && styles.soilTitleActive,
-                  ]}>
-                    {option.type}
+                  <Text
+                    style={[
+                      styles.soilTitle,
+                      soilType === option.type && styles.soilTitleActive,
+                    ]}
+                  >
+                    {language === "si"
+                      ? option.type === "Loamy"
+                        ? t("loamy")
+                        : option.type === "Sandy"
+                        ? t("sandy")
+                        : t("clay")
+                      : option.type}
                   </Text>
-                  <Text style={[
-                    styles.soilDescription,
-                    soilType === option.type && styles.soilDescriptionActive,
-                  ]}>
+                  <Text
+                    style={[
+                      styles.soilDescription,
+                      soilType === option.type && styles.soilDescriptionActive,
+                    ]}
+                  >
                     {option.description}
                   </Text>
                   {soilType === option.type && (
                     <View style={styles.checkmark}>
-                      <Ionicons name="checkmark-circle" size={20} color="#2E7D32" />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color="#2E7D32"
+                      />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -241,10 +257,9 @@ export default function FarmSetupScreen() {
             </View>
           </View>
 
-          {/* Planting Date */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Planting Start Date</Text>
-            <Text style={styles.helper}>When did you plant your Aloe Vera?</Text>
+            <Text style={styles.label}>{t("plantingStartDate")}</Text>
+            <Text style={styles.helper}>{t("whenDidYouPlantAloe")}</Text>
 
             <TouchableOpacity
               style={styles.dateButton}
@@ -255,14 +270,17 @@ export default function FarmSetupScreen() {
                 <Ionicons name="calendar" size={22} color="#2E7D32" />
               </View>
               <View style={styles.dateTextContainer}>
-                <Text style={styles.dateLabel}>Selected Date</Text>
+                <Text style={styles.dateLabel}>{t("selectedDate")}</Text>
                 <Text style={styles.dateText}>
-                  {plantingDate.toLocaleDateString('en-US', { 
-                    weekday: 'short',
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
+                  {plantingDate.toLocaleDateString(
+                    language === "si" ? "si-LK" : "en-US",
+                    {
+                      weekday: "short",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    }
+                  )}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9E9E9E" />
@@ -284,10 +302,9 @@ export default function FarmSetupScreen() {
         </View>
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
       <View style={styles.bottomContainer}>
-        <TouchableOpacity 
-          style={styles.saveButton} 
+        <TouchableOpacity
+          style={styles.saveButton}
           onPress={saveFarmSetup}
           activeOpacity={0.8}
         >
@@ -297,7 +314,7 @@ export default function FarmSetupScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.saveText}>Continue to Dashboard</Text>
+            <Text style={styles.saveText}>{t("continueToDashboard")}</Text>
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>

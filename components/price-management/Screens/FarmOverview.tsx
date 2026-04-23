@@ -20,12 +20,14 @@ import {
 import { LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useAxios from "@/hooks/useAxios";
+import { useLanguage } from "@/context/LanguageContext";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function FarmOverview() {
   const router = useRouter();
   const axios = useAxios();
+  const { t } = useLanguage();
 
   const [period, setPeriod] = useState<"30days" | "6months" | "1year" | "all">("30days");
   const [tooltip, setTooltip] = useState<{
@@ -42,7 +44,6 @@ export default function FarmOverview() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // retrieve summary and records from backend
   useEffect(() => {
     fetchDashboard();
   }, [axios]);
@@ -59,15 +60,13 @@ export default function FarmOverview() {
     }
   };
 
-  /* ---------------- DATA ---------------- */
-  // values are derived from the dashboard API result once loaded
   const rs = (v: number) => `Rs. ${v.toLocaleString()}`;
 
   if (loading || !summary) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={{ marginTop: 10, color: "#666" }}>Loading overview...</Text>
+        <Text style={{ marginTop: 10, color: "#666" }}>{t("loadingOverview")}</Text>
       </SafeAreaView>
     );
   }
@@ -91,59 +90,56 @@ export default function FarmOverview() {
     }
   }) || [];
 
+  let sortedRecords = [...filteredRecords].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
 
-let sortedRecords = [...filteredRecords].sort(
-  (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-);
+  if (period === "1year" || period === "all") {
+    const maxPoints = 20;
 
-
-if (period === "1year" || period === "all") {
-  const maxPoints = 20;
-
-  if (sortedRecords.length > maxPoints) {
-    const step = Math.ceil(sortedRecords.length / maxPoints);
-    sortedRecords = sortedRecords.filter((_, index) => index % step === 0);
+    if (sortedRecords.length > maxPoints) {
+      const step = Math.ceil(sortedRecords.length / maxPoints);
+      sortedRecords = sortedRecords.filter((_, index) => index % step === 0);
+    }
   }
-}
 
-const formatDate = (dateStr: string) => {
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-};
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
 
-const allDates = sortedRecords.map((r) => r.date);
-const farmerPrices = sortedRecords.map((r) => r.farmerPrice);
-const webPrices = sortedRecords.map((r) => r.webPrice);
+  const allDates = sortedRecords.map((r) => r.date);
+  const farmerPrices = sortedRecords.map((r) => r.farmerPrice);
+  const webPrices = sortedRecords.map((r) => r.webPrice);
 
-// Show only max 5 labels evenly spaced
-const maxLabels = 5;
-const labelStep =
-  allDates.length > maxLabels
-    ? Math.ceil(allDates.length / maxLabels)
-    : 1;
+  const maxLabels = 5;
+  const labelStep =
+    allDates.length > maxLabels
+      ? Math.ceil(allDates.length / maxLabels)
+      : 1;
 
-const visibleLabels = allDates.map((label, index) => {
-  if (index === 0) return formatDate(label); // first
-  if (index === allDates.length - 1) return formatDate(label); // last
-  if (index % labelStep === 0) return formatDate(label);
-  return "";
-});
+  const visibleLabels = allDates.map((label, index) => {
+    if (index === 0) return formatDate(label);
+    if (index === allDates.length - 1) return formatDate(label);
+    if (index % labelStep === 0) return formatDate(label);
+    return "";
+  });
 
-const chartData = {
-  labels: visibleLabels,
-  datasets: [
-    {
-      data: farmerPrices,
-      color: () => "#2563eb", 
-      strokeWidth: 3,
-    },
-    {
-      data: webPrices,
-      color: () => "#16a34a", 
-      strokeWidth: 3,
-    },
-  ],
-};
+  const chartData = {
+    labels: visibleLabels,
+    datasets: [
+      {
+        data: farmerPrices,
+        color: () => "#2563eb",
+        strokeWidth: 3,
+      },
+      {
+        data: webPrices,
+        color: () => "#16a34a",
+        strokeWidth: 3,
+      },
+    ],
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
@@ -151,7 +147,6 @@ const chartData = {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 30 }}
       >
-        {/* ================= HEADER ================= */}
         <View
           style={{
             backgroundColor: "#16a34a",
@@ -163,7 +158,6 @@ const chartData = {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            {/* BACK BUTTON */}
             <Pressable
               onPress={() => router.replace("/home")}
               style={{
@@ -175,21 +169,19 @@ const chartData = {
               <ArrowLeft size={22} color="#fff" />
             </Pressable>
 
-            {/* TITLE */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Leaf size={28} color="#fff" />
               <Text style={{ fontSize: 22, fontWeight: "700", color: "#fff" }}>
-                Aloe Green – Farm Overview
+                {t("aloeGreenFarmOverview")}
               </Text>
             </View>
           </View>
 
           <Text style={{ marginTop: 6, color: "#dcfce7", fontSize: 13 }}>
-            Production, cost & price insights
+            {t("productionCostPriceInsights")}
           </Text>
         </View>
 
-        {/* ================= SUMMARY CARDS ================= */}
         <View
           style={{
             marginTop: -26,
@@ -201,35 +193,34 @@ const chartData = {
         >
           <SummaryCard
             icon={<Package size={18} color="#16a34a" />}
-            label="Production Quantity"
+            label={t("productionQuantity")}
             value={latest ? `${latest.productionQuantity}` : "-"}
             unit="kg"
             bg="#f0fdf4"
           />
           <SummaryCard
             icon={<ShoppingCart size={18} color="#2563eb" />}
-            label="Farm Gate Price"
+            label={t("farmGatePrice")}
             value={latest ? rs(latest.farmerPrice) : "-"}
             unit="/ kg"
             bg="#eff6ff"
           />
           <SummaryCard
             icon={<Globe size={18} color="#059669" />}
-            label="Web Market Price"
+            label={t("webMarketPrice")}
             value={latest ? rs(latest.webPrice) : "-"}
             unit="/ kg"
             bg="#ecfdf5"
           />
           <SummaryCard
             icon={<Wallet size={18} color="#92400e" />}
-            label="Production Cost"
+            label={t("productionCost")}
             value={latest ? rs(latest.totalCost) : "-"}
-            unit="total"
+            unit={t("total")}
             bg="#fffbeb"
           />
         </View>
 
-        {/* ================= PRICE TREND HEADER ================= */}
         <View
           style={{
             marginTop: 22,
@@ -240,34 +231,33 @@ const chartData = {
           }}
         >
           <Text style={{ fontSize: 17, fontWeight: "700", color: "#111827" }}>
-            Price Trend
+            {t("priceTrend")}
           </Text>
 
           <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
             <PillButton
-              text="30 Days"
+              text={t("days30")}
               active={period === "30days"}
               onPress={() => setPeriod("30days")}
             />
             <PillButton
-              text="6 Months"
+              text={t("months6")}
               active={period === "6months"}
               onPress={() => setPeriod("6months")}
             />
             <PillButton
-              text="1 Year"
+              text={t("year1")}
               active={period === "1year"}
               onPress={() => setPeriod("1year")}
             />
             <PillButton
-              text="All"
+              text={t("all")}
               active={period === "all"}
               onPress={() => setPeriod("all")}
             />
           </View>
         </View>
 
-        {/* ================= CHART CARD ================= */}
         <View
           style={{
             margin: 16,
@@ -289,55 +279,50 @@ const chartData = {
               marginBottom: 10,
             }}
           >
-            <LegendDot color="#2563eb" label="Farm Gate Price" />
-            <LegendDot color="#16a34a" label="Web Market Price" />
+            <LegendDot color="#2563eb" label={t("farmGatePrice")} />
+            <LegendDot color="#16a34a" label={t("webMarketPrice")} />
           </View>
 
           <View style={{ position: "relative" }}>
-           {sortedRecords.length === 0 ? (
-  <View style={{ paddingVertical: 40 }}>
-    <Text style={{ textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
-      No data available for this period
-    </Text>
-  </View>
-) : (
+            {sortedRecords.length === 0 ? (
+              <View style={{ paddingVertical: 40 }}>
+                <Text style={{ textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
+                  {t("noDataAvailableForPeriod")}
+                </Text>
+              </View>
+            ) : (
               <>
-              <LineChart
-  data={chartData}
-  width={screenWidth - 32}
-  height={230}
-  segments={4}
-  formatYLabel={(v) => `Rs.${v}`}
-  withShadow={false}
-  withInnerLines={true}
-  withOuterLines={false}
-  chartConfig={{
-    backgroundColor: "#ffffff",
-    backgroundGradientFrom: "#ffffff",
-    backgroundGradientTo: "#ffffff",
-    decimalPlaces: 0,
-
-    // 🔥 IMPORTANT: base color must exist
-    color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})`,
-
-    labelColor: () => "#6b7280",
-
-    propsForDots: {
-      r: "6",
-      strokeWidth: "2",
-      stroke: "#ffffff",
-    },
-
-    propsForBackgroundLines: {
-      strokeDasharray: "6 6",
-      stroke: "#e5e7eb",
-    },
-  }}
-  bezier
-  onDataPointClick={({ x, y, index }) =>
-    setTooltip({ x, y, index })
-  }
-/>
+                <LineChart
+                  data={chartData}
+                  width={screenWidth - 32}
+                  height={230}
+                  segments={4}
+                  formatYLabel={(v) => `Rs.${v}`}
+                  withShadow={false}
+                  withInnerLines={true}
+                  withOuterLines={false}
+                  chartConfig={{
+                    backgroundColor: "#ffffff",
+                    backgroundGradientFrom: "#ffffff",
+                    backgroundGradientTo: "#ffffff",
+                    decimalPlaces: 0,
+                    color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})`,
+                    labelColor: () => "#6b7280",
+                    propsForDots: {
+                      r: "6",
+                      strokeWidth: "2",
+                      stroke: "#ffffff",
+                    },
+                    propsForBackgroundLines: {
+                      strokeDasharray: "6 6",
+                      stroke: "#e5e7eb",
+                    },
+                  }}
+                  bezier
+                  onDataPointClick={({ x, y, index }) =>
+                    setTooltip({ x, y, index })
+                  }
+                />
 
                 {tooltip && (
                   <TooltipCard
@@ -346,6 +331,7 @@ const chartData = {
                     farmerData={chartData.datasets[0].data}
                     webData={chartData.datasets[1].data}
                     onClose={() => setTooltip(null)}
+                    t={t}
                   />
                 )}
               </>
@@ -356,8 +342,6 @@ const chartData = {
     </SafeAreaView>
   );
 }
-
-/* ================= COMPONENTS ================= */
 
 function SummaryCard({ icon, label, value, unit, bg }: any) {
   return (
@@ -445,6 +429,7 @@ function TooltipCard({
   farmerData,
   webData,
   onClose,
+  t,
 }: any) {
   return (
     <TouchableOpacity
@@ -469,10 +454,10 @@ function TooltipCard({
         {labels[index]}
       </Text>
       <Text style={{ color: "#2563eb", fontSize: 12 }}>
-        Farmer Price (Rs): {farmerData[index]}
+        {t("farmerPriceRs")}: {farmerData[index]}
       </Text>
       <Text style={{ color: "#16a34a", fontSize: 12, marginTop: 2 }}>
-        Web Price (Rs): {webData[index]}
+        {t("webPriceRs")}: {webData[index]}
       </Text>
     </TouchableOpacity>
   );

@@ -15,24 +15,27 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function CommunityAlertScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t } = useLanguage();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  const diseaseName = (params.disease as string) || "Aloe Rust";
-  const severity = (params.severity as string) || "High";
-  const spreadRisk = (params.spreadRisk as string) || "High";
+  const diseaseName = (params.disease as string) || t("aloeRust");
+  const severity = (params.severity as string) || t("high");
+  const spreadRisk = (params.spreadRisk as string) || t("high");
 
   const [message, setMessage] = useState(
-    `⚠️ DISEASE ALERT\n\nDisease: ${diseaseName}\nSeverity: ${severity}\nSpread Risk: ${spreadRisk}\n\nA disease has been detected in an Aloe Vera plant site. Please inspect nearby crops and take preventive action immediately.`
+    `${t("warningSymbol")} ${t("diseaseAlertUpper")}\n\n${t("disease")}: ${diseaseName}\n${t("severity")}: ${severity}\n${t("spreadRisk")}: ${spreadRisk}\n\n${t("communityAlertDefaultMessage")}`
   );
 
   const [includeLocation, setIncludeLocation] = useState(true);
   const [urgentAlert, setUrgentAlert] = useState(
-    severity === "High" || severity === "Critical"
+    severity === t("high") || severity === t("critical")
   );
   const [sending, setSending] = useState(false);
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -61,7 +64,7 @@ export default function CommunityAlertScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
-        Alert.alert("Permission denied", "Location permission is required.");
+        Alert.alert(t("permissionDenied"), t("locationPermissionRequired"));
         return;
       }
 
@@ -73,15 +76,15 @@ export default function CommunityAlertScreen() {
       setLongitude(location.coords.longitude);
     } catch (error) {
       console.error("Location error:", error);
-      Alert.alert("Location Error", "Could not fetch current location.");
+      Alert.alert(t("locationError"), t("couldNotFetchLocation"));
     }
   };
 
   const handleSendAlert = async () => {
-    if (severity !== "High" && severity !== "Critical") {
+    if (severity !== t("high") && severity !== t("critical")) {
       Alert.alert(
-        "Not Allowed",
-        "Email alerts are only sent for High or Critical disease severity."
+        t("notAllowed"),
+        t("emailAlertsOnlyHighCritical")
       );
       return;
     }
@@ -96,6 +99,7 @@ export default function CommunityAlertScreen() {
         message,
         latitude: includeLocation ? latitude : null,
         longitude: includeLocation ? longitude : null,
+        urgent: urgentAlert,
       };
 
       const response = await fetch(
@@ -112,17 +116,17 @@ export default function CommunityAlertScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Failed to send email alert");
+        throw new Error(data.detail || t("failedToSendEmailAlert"));
       }
 
       Alert.alert(
-        "Success",
-        "Alert email sent to the agricultural office successfully.",
+        t("success"),
+        t("alertEmailSentSuccessfully"),
         [{ text: "OK", onPress: () => router.back() }]
       );
     } catch (error: any) {
       console.error("Send email error:", error);
-      Alert.alert("Error", error.message || "Failed to send email alert.");
+      Alert.alert(t("error"), error.message || t("failedToSendEmailAlert"));
     } finally {
       setSending(false);
     }
@@ -152,9 +156,9 @@ export default function CommunityAlertScreen() {
             <Ionicons name="arrow-back" size={24} color="#1B5E20" />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Community Alert</Text>
+            <Text style={styles.headerTitle}>{t("communityAlert")}</Text>
             <Text style={styles.headerSubtitle}>
-              Email agricultural office
+              {t("emailAgriculturalOffice")}
             </Text>
           </View>
           <View style={styles.headerPlaceholder} />
@@ -168,22 +172,22 @@ export default function CommunityAlertScreen() {
             <View style={styles.alertIconWrapper}>
               <Ionicons name="warning" size={32} color="#F57C00" />
             </View>
-            <Text style={styles.alertInfoTitle}>Disease Alert</Text>
+            <Text style={styles.alertInfoTitle}>{t("diseaseAlert")}</Text>
 
             <View style={styles.alertInfoRow}>
-              <Text style={styles.alertInfoLabel}>Disease:</Text>
+              <Text style={styles.alertInfoLabel}>{t("disease")}:</Text>
               <Text style={styles.alertInfoValue}>{diseaseName}</Text>
             </View>
 
             <View style={styles.alertInfoRow}>
-              <Text style={styles.alertInfoLabel}>Severity:</Text>
+              <Text style={styles.alertInfoLabel}>{t("severity")}:</Text>
               <Text style={[styles.alertInfoValue, styles.severityText]}>
                 {severity}
               </Text>
             </View>
 
             <View style={styles.alertInfoRow}>
-              <Text style={styles.alertInfoLabel}>Spread Risk:</Text>
+              <Text style={styles.alertInfoLabel}>{t("spreadRisk")}:</Text>
               <Text style={[styles.alertInfoValue, styles.riskText]}>
                 {spreadRisk}
               </Text>
@@ -191,7 +195,7 @@ export default function CommunityAlertScreen() {
 
             {latitude && longitude && (
               <View style={{ marginTop: 10 }}>
-                <Text style={styles.alertInfoLabel}>Current Location:</Text>
+                <Text style={styles.alertInfoLabel}>{t("currentLocation")}:</Text>
                 <Text style={styles.alertInfoValue}>
                   {latitude.toFixed(5)}, {longitude.toFixed(5)}
                 </Text>
@@ -202,7 +206,7 @@ export default function CommunityAlertScreen() {
           <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
             <View style={styles.cardHeader}>
               <Ionicons name="chatbox-ellipses" size={24} color="#2E7D32" />
-              <Text style={styles.cardTitle}>Email Message</Text>
+              <Text style={styles.cardTitle}>{t("emailMessage")}</Text>
             </View>
 
             <TextInput
@@ -211,23 +215,23 @@ export default function CommunityAlertScreen() {
               onChangeText={setMessage}
               multiline
               numberOfLines={8}
-              placeholder="Type your message..."
+              placeholder={t("typeYourMessage")}
               placeholderTextColor="#999"
             />
 
-            <Text style={styles.characterCount}>{message.length} characters</Text>
+            <Text style={styles.characterCount}>{message.length} {t("characters")}</Text>
           </Animated.View>
 
           <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
             <View style={styles.cardHeader}>
               <Ionicons name="settings" size={24} color="#2E7D32" />
-              <Text style={styles.cardTitle}>Options</Text>
+              <Text style={styles.cardTitle}>{t("options")}</Text>
             </View>
 
             <View style={styles.optionRow}>
               <View style={styles.optionLeft}>
                 <Ionicons name="location" size={20} color="#2E7D32" />
-                <Text style={styles.optionText}>Include current location</Text>
+                <Text style={styles.optionText}>{t("includeCurrentLocation")}</Text>
               </View>
               <Switch
                 value={includeLocation}
@@ -240,7 +244,7 @@ export default function CommunityAlertScreen() {
             <View style={styles.optionRow}>
               <View style={styles.optionLeft}>
                 <Ionicons name="alert-circle" size={20} color="#F57C00" />
-                <Text style={styles.optionText}>Mark as urgent</Text>
+                <Text style={styles.optionText}>{t("markAsUrgent")}</Text>
               </View>
               <Switch
                 value={urgentAlert}
@@ -268,12 +272,12 @@ export default function CommunityAlertScreen() {
               {sending ? (
                 <>
                   <Ionicons name="hourglass" size={24} color="#FFFFFF" />
-                  <Text style={styles.sendButtonText}>Sending...</Text>
+                  <Text style={styles.sendButtonText}>{t("sending")}</Text>
                 </>
               ) : (
                 <>
                   <Ionicons name="mail" size={24} color="#FFFFFF" />
-                  <Text style={styles.sendButtonText}>Send Email Alert</Text>
+                  <Text style={styles.sendButtonText}>{t("sendEmailAlert")}</Text>
                 </>
               )}
             </LinearGradient>

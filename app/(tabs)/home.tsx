@@ -1,5 +1,5 @@
 import { Link } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   Dimensions,
@@ -11,72 +11,28 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from "../../context/LanguageContext";
 
 const { width } = Dimensions.get("window");
 
-const FEATURES = [
-  {
-    href: "/yield",
-    title: "Yield & Forecasting",
-    subtitle: "Predict gel weight and harvest yield using ML models and soil data.",
-    icon: "chart-timeline-variant" as const,
-    iconLib: "mci",
-    accent: "#2E7D32",
-    gradient: ["#E8F5E9", "#C8E6C9"] as [string, string],
-    iconBg: "#2E7D32",
-    tag: "ML Powered",
-    tagColor: "#2E7D32",
-    tagBg: "#E8F5E9",
-  },
-  {
-    href: "/disease-management",
-    title: "Disease Detection",
-    subtitle: "Scan leaf images with AI to identify diseases and get treatment advice.",
-    icon: "leaf-circle-outline" as const,
-    iconLib: "mci",
-    accent: "#1565C0",
-    gradient: ["#E3F2FD", "#BBDEFB"] as [string, string],
-    iconBg: "#1565C0",
-    tag: "AI Vision",
-    tagColor: "#1565C0",
-    tagBg: "#E3F2FD",
-  },
-  {
-    href: "/fertilizer-management",
-    title: "Fertilizer Plan",
-    subtitle: "Get personalized nutrient schedules based on your soil profile and growth stage.",
-    icon: "sprout-outline" as const,
-    iconLib: "mci",
-    accent: "#E65100",
-    gradient: ["#FFF3E0", "#FFE0B2"] as [string, string],
-    iconBg: "#E65100",
-    tag: "Personalized",
-    tagColor: "#E65100",
-    tagBg: "#FFF3E0",
-  },
-  {
-    href: "/price-management/overview",
-    title: "Price Forecast",
-    subtitle: "Track market trends and predict Aloe Vera leaf prices using real-time data.",
-    icon: "trending-up" as const,
-    iconLib: "ion",
-    accent: "#6A1B9A",
-    gradient: ["#F3E5F5", "#E1BEE7"] as [string, string],
-    iconBg: "#6A1B9A",
-    tag: "Market Data",
-    tagColor: "#6A1B9A",
-    tagBg: "#F3E5F5",
-  },
-];
-
 function FeatureCard({
   feature,
-  index,
   fadeAnim,
   slideAnim,
 }: {
-  feature: (typeof FEATURES)[0];
-  index: number;
+  feature: {
+    href: string;
+    title: string;
+    subtitle: string;
+    icon: string;
+    iconLib: "mci" | "ion";
+    accent: string;
+    gradient: [string, string];
+    iconBg: string;
+    tag: string;
+    tagColor: string;
+    tagBg: string;
+  };
   fadeAnim: Animated.Value;
   slideAnim: Animated.Value;
 }) {
@@ -84,6 +40,7 @@ function FeatureCard({
     inputRange: [0, 1],
     outputRange: [0, 1],
   });
+
   const cardTranslate = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [40, 0],
@@ -98,11 +55,9 @@ function FeatureCard({
     >
       <Link href={feature.href as any} asChild>
         <TouchableOpacity activeOpacity={0.88} style={styles.card}>
-          {/* Left accent bar */}
           <View style={[styles.cardAccentBar, { backgroundColor: feature.accent }]} />
 
           <View style={styles.cardInner}>
-            {/* Icon circle */}
             <View style={[styles.iconCircle, { backgroundColor: feature.iconBg }]}>
               <LinearGradient
                 colors={[`${feature.iconBg}cc`, feature.iconBg]}
@@ -120,9 +75,7 @@ function FeatureCard({
               )}
             </View>
 
-            {/* Text content */}
             <View style={styles.cardText}>
-              {/* Tag */}
               <View style={[styles.tag, { backgroundColor: feature.tagBg }]}>
                 <Text style={[styles.tagText, { color: feature.tagColor }]}>
                   {feature.tag}
@@ -133,13 +86,11 @@ function FeatureCard({
               <Text style={styles.cardSubtitle}>{feature.subtitle}</Text>
             </View>
 
-            {/* Chevron */}
             <View style={[styles.chevronWrap, { backgroundColor: `${feature.accent}12` }]}>
               <Ionicons name="chevron-forward" size={18} color={feature.accent} />
             </View>
           </View>
 
-          {/* Bottom gradient strip */}
           <LinearGradient
             colors={[...feature.gradient, "transparent"] as any}
             start={{ x: 0, y: 0 }}
@@ -153,17 +104,91 @@ function FeatureCard({
 }
 
 export default function HomeScreen() {
+  const { t } = useLanguage();
+
+  const FEATURES = useMemo(
+    () => [
+      {
+        href: "/yield",
+        title: t("yieldForecastingTitle"),
+        subtitle: t("yieldForecastingSubtitle"),
+        icon: "chart-timeline-variant",
+        iconLib: "mci" as const,
+        accent: "#2E7D32",
+        gradient: ["#E8F5E9", "#C8E6C9"] as [string, string],
+        iconBg: "#2E7D32",
+        tag: t("mlPowered"),
+        tagColor: "#2E7D32",
+        tagBg: "#E8F5E9",
+      },
+      {
+        href: "/disease-management",
+        title: t("diseaseDetectionTitle"),
+        subtitle: t("diseaseDetectionSubtitle"),
+        icon: "leaf-circle-outline",
+        iconLib: "mci" as const,
+        accent: "#1565C0",
+        gradient: ["#E3F2FD", "#BBDEFB"] as [string, string],
+        iconBg: "#1565C0",
+        tag: t("aiVision"),
+        tagColor: "#1565C0",
+        tagBg: "#E3F2FD",
+      },
+      {
+        href: "/fertilizer-management",
+        title: t("fertilizerPlanTitle"),
+        subtitle: t("fertilizerPlanSubtitle"),
+        icon: "sprout-outline",
+        iconLib: "mci" as const,
+        accent: "#E65100",
+        gradient: ["#FFF3E0", "#FFE0B2"] as [string, string],
+        iconBg: "#E65100",
+        tag: t("personalized"),
+        tagColor: "#E65100",
+        tagBg: "#FFF3E0",
+      },
+      {
+        href: "/price-management/overview",
+        title: t("priceForecastTitle"),
+        subtitle: t("priceForecastSubtitle"),
+        icon: "trending-up",
+        iconLib: "ion" as const,
+        accent: "#6A1B9A",
+        gradient: ["#F3E5F5", "#E1BEE7"] as [string, string],
+        iconBg: "#6A1B9A",
+        tag: t("marketData"),
+        tagColor: "#6A1B9A",
+        tagBg: "#F3E5F5",
+      },
+    ],
+    [t]
+  );
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const headerScale = useRef(new Animated.Value(0.94)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }),
-      Animated.spring(headerScale, { toValue: 1, friction: 7, tension: 40, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 700,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(headerScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 40,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, headerScale]);
 
   return (
     <LinearGradient colors={["#E8F5E9", "#F1F8E9", "#FFFFFF"]} style={styles.container}>
@@ -171,66 +196,65 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Header ── */}
         <Animated.View
           style={[
             styles.header,
             { opacity: fadeAnim, transform: [{ scale: headerScale }] },
           ]}
         >
-          {/* Logo badge */}
           <View style={styles.logoBadge}>
-            <LinearGradient colors={["#2E7D32", "#1B5E20"]} style={StyleSheet.absoluteFill} borderRadius={20} />
+            <LinearGradient
+              colors={["#2E7D32", "#1B5E20"]}
+              style={StyleSheet.absoluteFill}
+              borderRadius={20}
+            />
             <MaterialCommunityIcons name="leaf" size={28} color="#FFFFFF" />
           </View>
 
-          <Text style={styles.heading}>Aloe Green</Text>
-          <Text style={styles.subheading}>Smart Support System for Aloe Vera</Text>
+          <Text style={styles.heading}>{t("appName")}</Text>
+          <Text style={styles.subheading}>{t("appSubtitle")}</Text>
 
-          {/* Status strip */}
           <View style={styles.statusStrip}>
             <View style={styles.statusItem}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusText}>System Active</Text>
+              <Text style={styles.statusText}>{t("systemActive")}</Text>
             </View>
+
             <View style={styles.statusDivider} />
+
             <View style={styles.statusItem}>
               <Ionicons name="cloud-done-outline" size={13} color="#4CAF50" />
-              <Text style={styles.statusText}>Models Ready</Text>
+              <Text style={styles.statusText}>{t("modelsReady")}</Text>
             </View>
+
             <View style={styles.statusDivider} />
+
             <View style={styles.statusItem}>
               <Ionicons name="wifi-outline" size={13} color="#4CAF50" />
-              <Text style={styles.statusText}>Connected</Text>
+              <Text style={styles.statusText}>{t("connected")}</Text>
             </View>
           </View>
         </Animated.View>
 
-        {/* ── Section Label ── */}
-        <Animated.View
-          style={[styles.sectionRow, { opacity: fadeAnim }]}
-        >
-          <Text style={styles.sectionLabel}>Features</Text>
+        <Animated.View style={[styles.sectionRow, { opacity: fadeAnim }]}>
+          <Text style={styles.sectionLabel}>{t("features")}</Text>
           <View style={styles.sectionLine} />
         </Animated.View>
 
-        {/* ── Feature Cards ── */}
         <View style={styles.cardsContainer}>
-          {FEATURES.map((feature, index) => (
+          {FEATURES.map((feature) => (
             <FeatureCard
               key={feature.href}
               feature={feature}
-              index={index}
               fadeAnim={fadeAnim}
               slideAnim={slideAnim}
             />
           ))}
         </View>
 
-        {/* ── Footer ── */}
         <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
           <MaterialCommunityIcons name="leaf" size={14} color="#9E9E9E" />
-          <Text style={styles.footerText}>Powered by ML & AI · Aloe Green v1.0</Text>
+          <Text style={styles.footerText}>{t("poweredByFooter")}</Text>
         </Animated.View>
       </ScrollView>
     </LinearGradient>
@@ -245,7 +269,6 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
 
-  // Header
   header: {
     alignItems: "center",
     marginBottom: 28,
@@ -279,7 +302,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Status strip
   statusStrip: {
     flexDirection: "row",
     alignItems: "center",
@@ -316,7 +338,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0E0E0",
   },
 
-  // Section label
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -336,7 +357,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0E0E0",
   },
 
-  // Cards
   cardsContainer: {
     gap: 14,
     marginBottom: 28,
@@ -428,7 +448,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // Footer
   footer: {
     flexDirection: "row",
     justifyContent: "center",
