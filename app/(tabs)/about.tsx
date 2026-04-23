@@ -1,93 +1,124 @@
-import { View, Text, StyleSheet, Image, ScrollView, Platform, Animated } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  Platform,
+  Animated,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useRef } from "react";
-
-const MODULES = [
-  {
-    number: "01",
-    title: "Yield & Forecasting",
-    description: "Predict Aloe Vera gel yield using weather patterns, soil data, and ML models.",
-    icon: "chart-timeline-variant",
-    iconLib: "mci" as const,
-    accent: "#2E7D32",
-    bg: "#E8F5E9",
-  },
-  {
-    number: "02",
-    title: "Disease Detection",
-    description: "Detect leaf diseases using AI vision and farmer-reported symptoms.",
-    icon: "leaf-circle-outline",
-    iconLib: "mci" as const,
-    accent: "#1565C0",
-    bg: "#E3F2FD",
-  },
-  {
-    number: "03",
-    title: "Fertilizer Plan",
-    description: "Personalized nutrient schedules based on plant age, soil profile, and season.",
-    icon: "sprout-outline",
-    iconLib: "mci" as const,
-    accent: "#E65100",
-    bg: "#FFF3E0",
-  },
-  {
-    number: "04",
-    title: "Price Forecasting",
-    description: "Predict market prices for Aloe Vera leaves using regional and historical data.",
-    icon: "trending-up",
-    iconLib: "ion" as const,
-    accent: "#6A1B9A",
-    bg: "#F3E5F5",
-  },
-];
-
-const TEAM = [
-  {
-    name: "Eesara Megasooriya",
-    role: "Tech Lead",
-    image: require("../../assets/images/eesara.jpg"),
-    icon: "code-slash-outline",
-    accent: "#2E7D32",
-    bg: "#E8F5E9",
-  },
-  {
-    name: "Himash Rajapaksha",
-    role: "Senior Developer",
-    image: require("../../assets/images/himash.jpg"),
-    icon: "terminal-outline",
-    accent: "#1565C0",
-    bg: "#E3F2FD",
-  },
-  {
-    name: "Shehani Samarathunga",
-    role: "QA Lead",
-    image: require("../../assets/images/shehani.jpg"),
-    icon: "shield-checkmark-outline",
-    accent: "#E65100",
-    bg: "#FFF3E0",
-  },
-  {
-    name: "Amanda Bandara",
-    role: "Business Analyst",
-    image: require("../../assets/images/amanda.jpg"),
-    icon: "bar-chart-outline",
-    accent: "#6A1B9A",
-    bg: "#F3E5F5",
-  },
-];
+import { useEffect, useMemo, useRef } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function AboutScreen() {
+  const { t } = useLanguage();
+
+  const MODULES = useMemo(
+    () => [
+      {
+        number: "01",
+        title: t("yieldForecastingTitle"),
+        description: t("aboutYieldDescription"),
+        icon: "chart-timeline-variant",
+        iconLib: "mci" as const,
+        accent: "#2E7D32",
+        bg: "#E8F5E9",
+      },
+      {
+        number: "02",
+        title: t("diseaseDetectionTitle"),
+        description: t("aboutDiseaseDescription"),
+        icon: "leaf-circle-outline",
+        iconLib: "mci" as const,
+        accent: "#1565C0",
+        bg: "#E3F2FD",
+      },
+      {
+        number: "03",
+        title: t("fertilizerPlanTitle"),
+        description: t("aboutFertilizerDescription"),
+        icon: "sprout-outline",
+        iconLib: "mci" as const,
+        accent: "#E65100",
+        bg: "#FFF3E0",
+      },
+      {
+        number: "04",
+        title: t("aboutPriceForecastingTitle"),
+        description: t("aboutPriceDescription"),
+        icon: "trending-up",
+        iconLib: "ion" as const,
+        accent: "#6A1B9A",
+        bg: "#F3E5F5",
+      },
+    ],
+    [t]
+  );
+
+  const TEAM = [
+    {
+      name: "Eesara Megasooriya",
+      role: t("techLead"),
+      image: require("../../assets/images/eesara.jpg"),
+      icon: "code-slash-outline",
+      accent: "#2E7D32",
+      bg: "#E8F5E9",
+    },
+    {
+      name: "Himash Rajapaksha",
+      role: t("seniorDeveloper"),
+      image: require("../../assets/images/himash.jpg"),
+      icon: "terminal-outline",
+      accent: "#1565C0",
+      bg: "#E3F2FD",
+    },
+    {
+      name: "Shehani Samarathunga",
+      role: t("qaLead"),
+      image: require("../../assets/images/shehani.jpg"),
+      icon: "shield-checkmark-outline",
+      accent: "#E65100",
+      bg: "#FFF3E0",
+    },
+    {
+      name: "Amanda Bandara",
+      role: t("businessAnalyst"),
+      image: require("../../assets/images/amanda.jpg"),
+      icon: "bar-chart-outline",
+      accent: "#6A1B9A",
+      bg: "#F3E5F5",
+    },
+  ];
+
+  const heroTags = [t("aiPowered"), t("mlModels"), t("researchApp")];
+
+  const stats = [
+    { value: "4", label: t("aiModules") },
+    { value: "4", label: t("teamMembers") },
+    { value: "v1.0", label: t("version") },
+  ];
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 700,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   return (
     <LinearGradient colors={["#E8F5E9", "#F1F8E9", "#FFFFFF"]} style={styles.screen}>
@@ -96,9 +127,11 @@ export default function AboutScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* ── Hero Header ── */}
           <Animated.View
-            style={[styles.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+            style={[
+              styles.hero,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
           >
             <View style={styles.logoBadge}>
               <LinearGradient
@@ -109,12 +142,11 @@ export default function AboutScreen() {
               <MaterialCommunityIcons name="leaf" size={32} color="#FFFFFF" />
             </View>
 
-            <Text style={styles.heroTitle}>Aloe Green</Text>
-            <Text style={styles.heroSubtitle}>Smart Support System for Aloe Vera</Text>
+            <Text style={styles.heroTitle}>{t("appName")}</Text>
+            <Text style={styles.heroSubtitle}>{t("appSubtitle")}</Text>
 
-            {/* Tag pills */}
             <View style={styles.tagRow}>
-              {["AI Powered", "ML Models", "Research App"].map((tag) => (
+              {heroTags.map((tag) => (
                 <View key={tag} style={styles.tag}>
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
@@ -122,47 +154,65 @@ export default function AboutScreen() {
             </View>
           </Animated.View>
 
-          {/* ── About Card ── */}
-          <Animated.View style={[{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          <Animated.View
+            style={[
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
             <View style={styles.aboutCard}>
               <View style={styles.cardTopLine} />
               <View style={styles.aboutHeader}>
                 <View style={styles.aboutIconWrap}>
-                  <Ionicons name="information-circle-outline" size={20} color="#2E7D32" />
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={20}
+                    color="#2E7D32"
+                  />
                 </View>
-                <Text style={styles.cardSectionTitle}>About This App</Text>
+                <Text style={styles.cardSectionTitle}>{t("aboutThisApp")}</Text>
               </View>
-              <Text style={styles.aboutText}>
-                A comprehensive AI-powered mobile application for Aloe Vera farmers — combining
-                disease detection, yield forecasting, fertilizer recommendations, and price
-                prediction to help farmers make informed decisions and improve crop productivity.
-              </Text>
+              <Text style={styles.aboutText}>{t("aboutAppDescription")}</Text>
             </View>
           </Animated.View>
 
-          {/* ── Section Label ── */}
           <Animated.View style={[styles.sectionRow, { opacity: fadeAnim }]}>
-            <Text style={styles.sectionLabel}>Core Modules</Text>
+            <Text style={styles.sectionLabel}>{t("coreModules")}</Text>
             <View style={styles.sectionLine} />
           </Animated.View>
 
-          {/* ── Modules ── */}
           <Animated.View
-            style={[styles.modulesGrid, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+            style={[
+              styles.modulesGrid,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
           >
             {MODULES.map((mod) => (
               <View key={mod.number} style={styles.moduleCard}>
-                <View style={[styles.moduleCardAccent, { backgroundColor: mod.accent }]} />
+                <View
+                  style={[styles.moduleCardAccent, { backgroundColor: mod.accent }]}
+                />
                 <View style={styles.moduleInner}>
                   <View style={styles.moduleTop}>
-                    <View style={[styles.moduleIconWrap, { backgroundColor: mod.bg }]}>
+                    <View
+                      style={[styles.moduleIconWrap, { backgroundColor: mod.bg }]}
+                    >
                       {mod.iconLib === "mci" ? (
-                        <MaterialCommunityIcons name={mod.icon as any} size={20} color={mod.accent} />
+                        <MaterialCommunityIcons
+                          name={mod.icon as any}
+                          size={20}
+                          color={mod.accent}
+                        />
                       ) : (
-                        <Ionicons name={mod.icon as any} size={20} color={mod.accent} />
+                        <Ionicons
+                          name={mod.icon as any}
+                          size={20}
+                          color={mod.accent}
+                        />
                       )}
                     </View>
-                    <Text style={[styles.moduleNumber, { color: mod.accent + "40" }]}>
+                    <Text
+                      style={[styles.moduleNumber, { color: mod.accent + "40" }]}
+                    >
                       {mod.number}
                     </Text>
                   </View>
@@ -173,41 +223,63 @@ export default function AboutScreen() {
             ))}
           </Animated.View>
 
-          {/* ── Section Label ── */}
           <Animated.View style={[styles.sectionRow, { opacity: fadeAnim }]}>
-            <Text style={styles.sectionLabel}>Our Team</Text>
+            <Text style={styles.sectionLabel}>{t("ourTeam")}</Text>
             <View style={styles.sectionLine} />
           </Animated.View>
 
-          {/* ── Team ── */}
           <Animated.View
-            style={[styles.teamGrid, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+            style={[
+              styles.teamGrid,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
           >
             {TEAM.map((member) => (
               <View key={member.name} style={styles.memberCard}>
-                <View style={[styles.memberCardTopLine, { backgroundColor: member.accent }]} />
+                <View
+                  style={[
+                    styles.memberCardTopLine,
+                    { backgroundColor: member.accent },
+                  ]}
+                />
 
-                {/* Avatar */}
-                <View style={[styles.avatarRing, { borderColor: member.accent + "40" }]}>
+                <View
+                  style={[
+                    styles.avatarRing,
+                    { borderColor: member.accent + "40" },
+                  ]}
+                >
                   <Image source={member.image} style={styles.avatar} />
-                  <View style={[styles.avatarBadge, { backgroundColor: member.bg }]}>
-                    <Ionicons name={member.icon as any} size={11} color={member.accent} />
+                  <View
+                    style={[
+                      styles.avatarBadge,
+                      { backgroundColor: member.bg },
+                    ]}
+                  >
+                    <Ionicons
+                      name={member.icon as any}
+                      size={11}
+                      color={member.accent}
+                    />
                   </View>
                 </View>
 
                 <Text style={styles.memberName}>{member.name}</Text>
 
-                {/* Role pill */}
                 <View style={[styles.rolePill, { backgroundColor: member.bg }]}>
-                  <Text style={[styles.roleText, { color: member.accent }]}>{member.role}</Text>
+                  <Text style={[styles.roleText, { color: member.accent }]}>
+                    {member.role}
+                  </Text>
                 </View>
               </View>
             ))}
           </Animated.View>
 
-          {/* ── Stats Strip ── */}
           <Animated.View
-            style={[styles.statsStrip, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+            style={[
+              styles.statsStrip,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
           >
             <LinearGradient
               colors={["#2E7D32", "#1B5E20"]}
@@ -216,11 +288,7 @@ export default function AboutScreen() {
               style={StyleSheet.absoluteFill}
               borderRadius={20}
             />
-            {[
-              { value: "4", label: "AI Modules" },
-              { value: "4", label: "Team Members" },
-              { value: "v1.0", label: "Version" },
-            ].map((s, i) => (
+            {stats.map((s, i) => (
               <View key={i} style={[styles.statItem, i < 2 && styles.statItemBorder]}>
                 <Text style={styles.statValue}>{s.value}</Text>
                 <Text style={styles.statLabel}>{s.label}</Text>
@@ -228,10 +296,9 @@ export default function AboutScreen() {
             ))}
           </Animated.View>
 
-          {/* ── Footer ── */}
           <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
             <MaterialCommunityIcons name="leaf" size={14} color="#BDBDBD" />
-            <Text style={styles.footerText}>Built with ❤️ for Aloe Vera farmers · Sri Lanka</Text>
+            <Text style={styles.footerText}>{t("aboutFooter")}</Text>
           </Animated.View>
         </ScrollView>
       </SafeAreaView>
@@ -247,7 +314,6 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
 
-  // Hero
   hero: {
     alignItems: "center",
     marginBottom: 24,
@@ -305,7 +371,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // About card
   aboutCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -353,7 +418,6 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
 
-  // Section row
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -369,7 +433,6 @@ const styles = StyleSheet.create({
   },
   sectionLine: { flex: 1, height: 1, backgroundColor: "#E0E0E0" },
 
-  // Modules
   modulesGrid: {
     gap: 12,
     marginBottom: 28,
@@ -425,7 +488,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Team
   teamGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -500,7 +562,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Stats strip
   statsStrip: {
     borderRadius: 20,
     overflow: "hidden",
@@ -535,7 +596,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Footer
   footer: {
     flexDirection: "row",
     justifyContent: "center",

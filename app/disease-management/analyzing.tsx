@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLanguage } from "../../context/LanguageContext";
 
 const { width } = Dimensions.get("window");
 
@@ -24,7 +25,9 @@ type AnalysisStep = {
 
 export default function AnalyzingScreen() {
   const router = useRouter();
-  const { imageUri } = useLocalSearchParams(); // Get the image from params
+  const { imageUri } = useLocalSearchParams();
+  const { t } = useLanguage();
+
   const scrollViewRef = useRef<ScrollView>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -36,27 +39,45 @@ export default function AnalyzingScreen() {
   const [currentStep, setCurrentStep] = useState(0);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [steps, setSteps] = useState<AnalysisStep[]>([
-    { id: 1, title: "Image preprocessing", icon: "image-outline", status: "pending" },
-    { id: 2, title: "Feature extraction", icon: "scan-outline", status: "pending" },
-    { id: 3, title: "Disease classification", icon: "analytics-outline", status: "pending" },
-    { id: 4, title: "Generating report", icon: "document-text-outline", status: "pending" },
+    {
+      id: 1,
+      title: t("imagePreprocessing"),
+      icon: "image-outline",
+      status: "pending",
+    },
+    {
+      id: 2,
+      title: t("featureExtraction"),
+      icon: "scan-outline",
+      status: "pending",
+    },
+    {
+      id: 3,
+      title: t("diseaseClassification"),
+      icon: "analytics-outline",
+      status: "pending",
+    },
+    {
+      id: 4,
+      title: t("generatingReport"),
+      icon: "document-text-outline",
+      status: "pending",
+    },
   ]);
 
-  // Use the passed image or fallback to a default
-  const displayImage = imageUri || "https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797?w=400";
+  const displayImage =
+    imageUri ||
+    "https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797?w=400";
 
   useEffect(() => {
-    // Start API call
     analyzeImage();
 
-    // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
       useNativeDriver: true,
     }).start();
 
-    // Continuous rotation for main icon
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
@@ -65,7 +86,6 @@ export default function AnalyzingScreen() {
       })
     ).start();
 
-    // Pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -81,7 +101,6 @@ export default function AnalyzingScreen() {
       ])
     ).start();
 
-    // Scan line animation
     Animated.loop(
       Animated.timing(scanLineAnim, {
         toValue: 1,
@@ -90,10 +109,9 @@ export default function AnalyzingScreen() {
       })
     ).start();
 
-    // Simulate analysis progress
-    const totalDuration = 6000; // 6 seconds
+    const totalDuration = 6000;
     const stepDuration = totalDuration / steps.length;
-    
+
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
@@ -104,7 +122,6 @@ export default function AnalyzingScreen() {
       });
     }, totalDuration / 100);
 
-    // Update steps with auto-scroll
     steps.forEach((step, index) => {
       setTimeout(() => {
         setCurrentStep(index);
@@ -116,11 +133,10 @@ export default function AnalyzingScreen() {
           })
         );
 
-        // Auto-scroll to current step
         if (scrollViewRef.current && index > 0) {
           setTimeout(() => {
             scrollViewRef.current?.scrollTo({
-              y: 300 + (index * 70),
+              y: 300 + index * 70,
               animated: true,
             });
           }, 100);
@@ -134,8 +150,8 @@ export default function AnalyzingScreen() {
   }, []);
 
   const analyzeImage = async () => {
-    const API_URL = "http://192.168.1.4:8000/api/disease/detect";
-    
+    const API_URL = "http://192.168.8.158:8000/api/disease/detect";
+
     try {
       const formData = new FormData();
       formData.append("file", {
@@ -145,9 +161,9 @@ export default function AnalyzingScreen() {
       } as any);
 
       const response = await fetch(API_URL, {
-  method: "POST",
-  body: formData,
-});
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
         throw new Error("Server error");
@@ -156,7 +172,6 @@ export default function AnalyzingScreen() {
       const result = await response.json();
       setAnalysisResult(result);
 
-      // Wait for animation to complete, then navigate
       setTimeout(() => {
         router.replace({
           pathname: "/disease-management/result",
@@ -165,16 +180,14 @@ export default function AnalyzingScreen() {
             confidence: result.confidence,
           },
         });
-      }, 6500); // 6.5 seconds total (6s animation + 0.5s buffer)
-
+      }, 6500);
     } catch (error) {
       console.error(error);
-      // On error, still navigate but with error state
       setTimeout(() => {
         router.replace({
           pathname: "/disease-management/result",
           params: {
-            disease: "Analysis Error",
+            disease: t("analysisError"),
             confidence: 0,
           },
         });
@@ -219,15 +232,13 @@ export default function AnalyzingScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-            {/* Image Preview with Scan Effect */}
             <View style={styles.imageSection}>
               <View style={styles.imageWrapper}>
-                <Image 
-                  source={{ uri: displayImage as string }} 
-                  style={styles.leafImage} 
+                <Image
+                  source={{ uri: displayImage as string }}
+                  style={styles.leafImage}
                 />
-                
-                {/* Scan line overlay */}
+
                 <Animated.View
                   style={[
                     styles.scanLine,
@@ -237,12 +248,15 @@ export default function AnalyzingScreen() {
                   ]}
                 >
                   <LinearGradient
-                    colors={["transparent", "rgba(46, 125, 50, 0.6)", "transparent"]}
+                    colors={[
+                      "transparent",
+                      "rgba(46, 125, 50, 0.6)",
+                      "transparent",
+                    ]}
                     style={styles.scanLineGradient}
                   />
                 </Animated.View>
 
-                {/* Corner decorations */}
                 <View style={styles.cornerTL} />
                 <View style={styles.cornerTR} />
                 <View style={styles.cornerBL} />
@@ -250,7 +264,6 @@ export default function AnalyzingScreen() {
               </View>
             </View>
 
-            {/* Animated Icon */}
             <Animated.View
               style={[
                 styles.iconWrapper,
@@ -262,13 +275,11 @@ export default function AnalyzingScreen() {
               <Ionicons name="analytics" size={48} color="#2E7D32" />
             </Animated.View>
 
-            {/* Status Text */}
-            <Text style={styles.title}>Analyzing Leaf</Text>
+            <Text style={styles.title}>{t("analyzingLeaf")}</Text>
             <Text style={styles.subtitle}>
-              Our AI is examining the image to detect diseases and assess plant health
+              {t("aiExaminingLeaf")}
             </Text>
 
-            {/* Progress Bar */}
             <View style={styles.progressContainer}>
               <View style={styles.progressBarBg}>
                 <Animated.View
@@ -288,22 +299,21 @@ export default function AnalyzingScreen() {
               <Text style={styles.progressText}>{progress}%</Text>
             </View>
 
-            {/* Analysis Steps */}
             <View style={styles.stepsContainer}>
               {steps.map((step, index) => {
                 const isCompleted = step.status === "completed";
                 const isProcessing = step.status === "processing";
-                const scaleAnim = useRef(new Animated.Value(1)).current;
+                const stepScaleAnim = useRef(new Animated.Value(1)).current;
 
                 useEffect(() => {
                   if (isProcessing) {
                     Animated.sequence([
-                      Animated.timing(scaleAnim, {
+                      Animated.timing(stepScaleAnim, {
                         toValue: 1.05,
                         duration: 200,
                         useNativeDriver: true,
                       }),
-                      Animated.timing(scaleAnim, {
+                      Animated.timing(stepScaleAnim, {
                         toValue: 1,
                         duration: 200,
                         useNativeDriver: true,
@@ -320,7 +330,7 @@ export default function AnalyzingScreen() {
                       isProcessing && styles.stepCardActive,
                       isCompleted && styles.stepCardCompleted,
                       {
-                        transform: [{ scale: scaleAnim }],
+                        transform: [{ scale: stepScaleAnim }],
                       },
                     ]}
                   >
@@ -377,11 +387,10 @@ export default function AnalyzingScreen() {
               })}
             </View>
 
-            {/* Info Footer */}
             <View style={styles.infoFooter}>
               <Ionicons name="shield-checkmark" size={18} color="#2E7D32" />
               <Text style={styles.infoText}>
-                Secure AI-powered analysis • Results in seconds
+                {t("secureAiPoweredAnalysis")}
               </Text>
             </View>
           </Animated.View>

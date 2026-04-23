@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -6,7 +7,6 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Animated,
@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from "../../context/LanguageContext";
 
 type Message = {
   text: string;
@@ -22,8 +23,6 @@ type Message = {
 };
 
 const API_KEY = "AIzaSyARuVdvV5wa0ZT1HgcZlMtjZcMYQlQg6RQ";
-
-const systemInstruction = `You are AloeVera AI, an expert in Aloe Vera farming. Help with disease detection, yield forecasting, fertilizer recommendations, and price predictions. Only answer questions about Aloe Vera farming. Respond in Sinhala if asked in Sinhala.`;
 
 const cleanMarkdown = (text: string): string => {
   return text
@@ -34,13 +33,6 @@ const cleanMarkdown = (text: string): string => {
     .replace(/\n\n\n+/g, "\n\n")
     .trim();
 };
-
-const QUICK_PROMPTS = [
-  { label: "Disease Detection", icon: "leaf-circle-outline", lib: "mci" as const },
-  { label: "Yield Forecast", icon: "chart-timeline-variant", lib: "mci" as const },
-  { label: "Fertilizer Plan", icon: "sprout-outline", lib: "mci" as const },
-  { label: "Price Prediction", icon: "trending-up", lib: "ion" as const },
-];
 
 function TypingDots() {
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -85,6 +77,9 @@ const typing = StyleSheet.create({
 });
 
 export default function ChatbotScreen() {
+  const router = useRouter();
+  const { t, language } = useLanguage();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -92,6 +87,18 @@ export default function ChatbotScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+
+  const systemInstruction =
+    language === "si"
+      ? "You are AloeVera AI, an expert in Aloe Vera farming. Help with disease detection, yield forecasting, fertilizer recommendations, and price predictions. Only answer questions about Aloe Vera farming. Always respond in Sinhala."
+      : "You are AloeVera AI, an expert in Aloe Vera farming. Help with disease detection, yield forecasting, fertilizer recommendations, and price predictions. Only answer questions about Aloe Vera farming. Always respond in English.";
+
+  const QUICK_PROMPTS = [
+    { label: t("diseaseDetection"), icon: "leaf-circle-outline", lib: "mci" as const },
+    { label: t("yieldForecasting"), icon: "chart-timeline-variant", lib: "mci" as const },
+    { label: t("fertilizerPlan"), icon: "sprout-outline", lib: "mci" as const },
+    { label: t("pricePrediction"), icon: "trending-up", lib: "ion" as const },
+  ];
 
   useEffect(() => {
     Animated.parallel([
@@ -120,7 +127,10 @@ export default function ChatbotScreen() {
             m.supportedGenerationMethods?.includes("generateContent") &&
             !m.name.includes("exp")
         );
-        if (model) { setAvailableModel(model.name.replace("models/", "")); return; }
+        if (model) {
+          setAvailableModel(model.name.replace("models/", ""));
+          return;
+        }
       }
       setAvailableModel("gemini-1.5-flash");
     } catch {
@@ -147,23 +157,26 @@ export default function ChatbotScreen() {
             contents: [
               {
                 parts: [
-                  { text: `${systemInstruction}\nUser: ${input}\nRespond only in plain text.` },
+                  {
+                    text: `${systemInstruction}\nUser: ${input}\nRespond only in plain text.`,
+                  },
                 ],
               },
             ],
           }),
         }
       );
+
       const data = await response.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || t("noResponse");
       setMessages((prev) => [
         ...prev,
         { text: cleanMarkdown(rawText), role: "model", timestamp: new Date() },
       ]);
-    } catch (error: any) {
+    } catch {
       setMessages((prev) => [
         ...prev,
-        { text: `Something went wrong. Please try again.`, role: "model", timestamp: new Date() },
+        { text: t("chatSomethingWentWrong"), role: "model", timestamp: new Date() },
       ]);
     } finally {
       setLoading(false);
@@ -171,7 +184,10 @@ export default function ChatbotScreen() {
   };
 
   const formatTime = (d: Date) =>
-    d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    d.toLocaleTimeString(language === "si" ? "si-LK" : "en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   return (
     <LinearGradient colors={["#E8F5E9", "#F1F8E9", "#FFFFFF"]} style={{ flex: 1 }}>
@@ -181,7 +197,6 @@ export default function ChatbotScreen() {
           style={{ flex: 1 }}
           keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
         >
-          {/* ── Header ── */}
           <Animated.View
             style={[s.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
           >
@@ -194,18 +209,19 @@ export default function ChatbotScreen() {
                 />
                 <MaterialCommunityIcons name="robot-happy-outline" size={24} color="#FFFFFF" />
               </View>
+
               <View style={s.headerText}>
-                <Text style={s.headerTitle}>AloeGreen AI</Text>
-                <Text style={s.headerSub}>Smart Aloe Vera Assistant</Text>
+                <Text style={s.headerTitle}>{t("aloeGreenAi")}</Text>
+                <Text style={s.headerSub}>{t("smartAloeVeraAssistant")}</Text>
               </View>
+
               <View style={s.onlineBadge}>
                 <View style={s.onlineDot} />
-                <Text style={s.onlineText}>Online</Text>
+                <Text style={s.onlineText}>{t("online")}</Text>
               </View>
             </View>
           </Animated.View>
 
-          {/* ── Chat Area ── */}
           <ScrollView
             ref={scrollRef}
             style={s.chatScroll}
@@ -213,22 +229,18 @@ export default function ChatbotScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Empty state */}
             {messages.length === 0 && (
               <Animated.View
                 style={[s.emptyState, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
               >
-                {/* Avatar */}
                 <View style={s.botAvatar}>
                   <LinearGradient colors={["#2E7D32", "#1B5E20"]} style={StyleSheet.absoluteFill} borderRadius={36} />
                   <MaterialCommunityIcons name="robot-happy-outline" size={36} color="#FFFFFF" />
                 </View>
-                <Text style={s.emptyTitle}>Hi, I'm AloeGreen AI</Text>
-                <Text style={s.emptySubtitle}>
-                  Your expert companion for Aloe Vera farming. Ask me anything!
-                </Text>
 
-                {/* Quick prompts */}
+                <Text style={s.emptyTitle}>{t("chatHiIAmAloeGreenAi")}</Text>
+                <Text style={s.emptySubtitle}>{t("chatExpertCompanion")}</Text>
+
                 <View style={s.quickGrid}>
                   {QUICK_PROMPTS.map((q) => (
                     <TouchableOpacity
@@ -252,7 +264,6 @@ export default function ChatbotScreen() {
               </Animated.View>
             )}
 
-            {/* Messages */}
             {messages.map((msg, i) => (
               <View
                 key={i}
@@ -263,6 +274,7 @@ export default function ChatbotScreen() {
                     <MaterialCommunityIcons name="leaf" size={14} color="#2E7D32" />
                   </View>
                 )}
+
                 <View style={{ maxWidth: "78%" }}>
                   <View
                     style={[
@@ -281,7 +293,6 @@ export default function ChatbotScreen() {
               </View>
             ))}
 
-            {/* Typing indicator */}
             {loading && (
               <View style={[s.msgRow, s.msgRowBot]}>
                 <View style={s.botBubbleAvatar}>
@@ -294,14 +305,13 @@ export default function ChatbotScreen() {
             )}
           </ScrollView>
 
-          {/* ── Input Bar ── */}
           <View style={s.inputBar}>
             <View style={s.inputWrap}>
               <TextInput
                 style={s.input}
                 value={userInput}
                 onChangeText={setUserInput}
-                placeholder="Ask about Aloe Vera farming…"
+                placeholder={t("askAboutAloeVeraFarming")}
                 placeholderTextColor="#BDBDBD"
                 multiline
                 maxLength={500}
@@ -309,6 +319,7 @@ export default function ChatbotScreen() {
                 onSubmitEditing={() => handleSend()}
               />
             </View>
+
             <TouchableOpacity
               style={[s.sendBtn, (!userInput.trim() || loading) && s.sendBtnDisabled]}
               onPress={() => handleSend()}
@@ -334,7 +345,6 @@ export default function ChatbotScreen() {
 }
 
 const s = StyleSheet.create({
-  // Header
   header: {
     paddingHorizontal: 18,
     paddingTop: 8,
@@ -381,7 +391,6 @@ const s = StyleSheet.create({
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#4CAF50" },
   onlineText: { fontSize: 11, fontWeight: "700", color: "#2E7D32" },
 
-  // Chat
   chatScroll: { flex: 1 },
   chatContent: {
     paddingHorizontal: 18,
@@ -390,7 +399,6 @@ const s = StyleSheet.create({
     flexGrow: 1,
   },
 
-  // Empty state
   emptyState: {
     flex: 1,
     alignItems: "center",
@@ -450,7 +458,6 @@ const s = StyleSheet.create({
   },
   quickLabel: { flex: 1, fontSize: 14, fontWeight: "700", color: "#1B5E20" },
 
-  // Messages
   msgRow: { flexDirection: "row", alignItems: "flex-end", marginBottom: 12, gap: 8 },
   msgRowUser: { justifyContent: "flex-end" },
   msgRowBot: { justifyContent: "flex-start" },
@@ -498,7 +505,6 @@ const s = StyleSheet.create({
   },
   timestampUser: { textAlign: "right", marginRight: 4, marginLeft: 0 },
 
-  // Input bar
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",

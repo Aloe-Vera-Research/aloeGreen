@@ -6,16 +6,20 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  Dimensions,
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage } from "../../context/LanguageContext";
 
-const API_BASE_URL = "http://192.168.1.35:8000";
+const API_BASE_URL = "http://192.168.8.158:8000";
+const { width } = Dimensions.get("window");
 
 export default function ScenarioScreen() {
-  // 🔧 Base values (from ML model – prototype)
+  const { t } = useLanguage();
+
   const requestIdRef = React.useRef(0);
   const [plantCount, setPlantCount] = useState<number>(0);
   const [basePerPlantYield, setBasePerPlantYield] = useState<number>(0);
@@ -23,17 +27,14 @@ export default function ScenarioScreen() {
   const [yieldChange, setYieldChange] = useState<string>("0.0");
   const [loadingScenario, setLoadingScenario] = useState<boolean>(false);
 
-  // Scenario inputs
-  const [irrigation, setIrrigation] = useState(4); // mm
-  const [temperature, setTemperature] = useState(32); // °C
-  const [fertilizer, setFertilizer] = useState(50); // %
-  const [sunlight, setSunlight] = useState(8); // hours
+  const [irrigation, setIrrigation] = useState(4);
+  const [temperature, setTemperature] = useState(32);
+  const [fertilizer, setFertilizer] = useState(50);
+  const [sunlight, setSunlight] = useState(8);
 
-  // Animation values
   const [yieldAnim] = useState(new Animated.Value(0));
   const [fadeAnim] = useState(new Animated.Value(0));
 
-  // 🔧 Enhanced simulation logic
   const perPlantScenarioYield = scenarioYield || basePerPlantYield;
   const totalScenarioYieldKg = (
     (perPlantScenarioYield * plantCount) /
@@ -54,7 +55,6 @@ export default function ScenarioScreen() {
     temp_day_c: 32.5,
   };
 
-  // Animate yield changes
   useEffect(() => {
     loadFarmSetup();
     fetchBasePrediction();
@@ -81,7 +81,6 @@ export default function ScenarioScreen() {
     return () => clearTimeout(timer);
   }, [irrigation, temperature]);
 
-  // Reset to defaults
   const resetScenario = () => {
     setIrrigation(4);
     setTemperature(32);
@@ -89,8 +88,7 @@ export default function ScenarioScreen() {
     setSunlight(8);
   };
 
-  // Preset scenarios
-  const applyPreset = (preset) => {
+  const applyPreset = (preset: string) => {
     switch (preset) {
       case "optimal":
         setIrrigation(6);
@@ -125,12 +123,6 @@ export default function ScenarioScreen() {
     }
   };
 
-  const getImpactColor = (value) => {
-    if (value > 5) return "#2E7D32";
-    if (value < -5) return "#D32F2F";
-    return "#F57C00";
-  };
-
   const fetchScenarioPrediction = async () => {
     try {
       const requestId = ++requestIdRef.current;
@@ -149,8 +141,6 @@ export default function ScenarioScreen() {
         ],
       };
 
-      console.log("Scenario payload:", JSON.stringify(payload, null, 2));
-
       const response = await fetch(`${API_BASE_URL}/yield/scenario`, {
         method: "POST",
         headers: {
@@ -159,13 +149,8 @@ export default function ScenarioScreen() {
         body: JSON.stringify(payload),
       });
 
-      console.log("Scenario status:", response.status);
-
       const rawText = await response.text();
-      console.log("Scenario raw response:", rawText);
-
       const data = rawText ? JSON.parse(rawText) : null;
-      console.log("Scenario parsed response:", data);
 
       if (requestId !== requestIdRef.current) return;
 
@@ -212,19 +197,19 @@ export default function ScenarioScreen() {
       console.log("Base prediction error:", error);
     }
   };
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.title}>Scenario Testing</Text>
+            <Text style={styles.title}>{t("scenarioTesting")}</Text>
             <Text style={styles.subtitle}>
-              Predict yield impact of environmental changes
+              {t("predictYieldImpactEnvironmentalChanges")}
             </Text>
           </View>
           <TouchableOpacity
@@ -236,9 +221,8 @@ export default function ScenarioScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Preset Scenarios */}
         <View style={styles.presetContainer}>
-          <Text style={styles.presetLabel}>Quick Scenarios:</Text>
+          <Text style={styles.presetLabel}>{t("quickScenarios")}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -250,7 +234,7 @@ export default function ScenarioScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="sunny" size={16} color="#2E7D32" />
-              <Text style={styles.presetText}>Optimal</Text>
+              <Text style={styles.presetText}>{t("optimalScenario")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.presetChip}
@@ -258,7 +242,7 @@ export default function ScenarioScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="flame" size={16} color="#F57C00" />
-              <Text style={styles.presetText}>Drought</Text>
+              <Text style={styles.presetText}>{t("droughtScenario")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.presetChip}
@@ -266,15 +250,13 @@ export default function ScenarioScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="rainy" size={16} color="#1976D2" />
-              <Text style={styles.presetText}>Rainy Season</Text>
+              <Text style={styles.presetText}>{t("rainySeason")}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
       </View>
 
-      {/* Result Cards */}
       <View style={styles.resultsSection}>
-        {/* Main Yield Card */}
         <Animated.View
           style={[
             styles.mainResultCard,
@@ -309,36 +291,34 @@ export default function ScenarioScreen() {
               </View>
             </View>
 
-            <Text style={styles.resultLabel}>Predicted Yield (Per Plant)</Text>
+            <Text style={styles.resultLabel}>{t("predictedYieldPerPlant")}</Text>
             <View style={styles.resultValueRow}>
               <Text style={styles.resultValue}>
                 {loadingScenario
                   ? "..."
                   : Number(perPlantScenarioYield || 0).toFixed(2)}
               </Text>
-              <Text style={styles.resultUnit}>grams</Text>
+              <Text style={styles.resultUnit}>{t("grams")}</Text>
             </View>
 
             <View style={styles.comparisonRow}>
               <Text style={styles.comparisonText}>
-                vs baseline: {basePerPlantYield}g
+                {t("vsBaseline")} {basePerPlantYield}g
               </Text>
             </View>
           </LinearGradient>
         </Animated.View>
 
-        {/* Total Yield Card */}
         <View style={styles.totalYieldCard}>
           <View style={styles.totalHeader}>
             <Ionicons name="analytics-outline" size={20} color="#2E7D32" />
-            <Text style={styles.totalLabel}>Total Farm Yield</Text>
+            <Text style={styles.totalLabel}>{t("totalFarmYield")}</Text>
           </View>
           <Text style={styles.totalValue}>{totalScenarioYieldKg} kg</Text>
           <Text style={styles.totalNote}>
-            Based on {plantCount.toLocaleString()} Aloe plants
+            {t("basedOnAloePlants")} {plantCount.toLocaleString()} {t("aloePlants")}
           </Text>
 
-          {/* Yield Comparison Bar */}
           <View style={styles.comparisonBar}>
             <View style={styles.comparisonBarTrack}>
               <View
@@ -358,17 +338,15 @@ export default function ScenarioScreen() {
               />
             </View>
             <Text style={styles.comparisonBarLabel}>
-              Baseline: {baseYieldKg} kg
+              {t("baseline")}: {baseYieldKg} kg
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Control Sliders */}
       <View style={styles.controlsSection}>
-        <Text style={styles.sectionTitle}>Adjust Parameters</Text>
+        <Text style={styles.sectionTitle}>{t("adjustParameters")}</Text>
 
-        {/* Irrigation Control */}
         <View style={styles.controlCard}>
           <View style={styles.controlHeader}>
             <View style={styles.controlLeft}>
@@ -378,8 +356,8 @@ export default function ScenarioScreen() {
                 <Ionicons name="water" size={20} color="#1976D2" />
               </View>
               <View>
-                <Text style={styles.controlTitle}>Irrigation</Text>
-                <Text style={styles.controlSubtitle}>Daily water amount</Text>
+                <Text style={styles.controlTitle}>{t("irrigation")}</Text>
+                <Text style={styles.controlSubtitle}>{t("dailyWaterAmount")}</Text>
               </View>
             </View>
             <View style={styles.controlValueContainer}>
@@ -404,11 +382,10 @@ export default function ScenarioScreen() {
             <Text style={styles.sliderLabel}>10 mm</Text>
           </View>
           <View style={styles.impactBadge}>
-            <Text style={styles.impactText}>UI parameter only</Text>
+            <Text style={styles.impactText}>{t("uiParameterOnly")}</Text>
           </View>
         </View>
 
-        {/* Temperature Control */}
         <View style={styles.controlCard}>
           <View style={styles.controlHeader}>
             <View style={styles.controlLeft}>
@@ -418,8 +395,8 @@ export default function ScenarioScreen() {
                 <Ionicons name="thermometer" size={20} color="#F57C00" />
               </View>
               <View>
-                <Text style={styles.controlTitle}>Temperature</Text>
-                <Text style={styles.controlSubtitle}>Average daily temp</Text>
+                <Text style={styles.controlTitle}>{t("temperature")}</Text>
+                <Text style={styles.controlSubtitle}>{t("averageDailyTemp")}</Text>
               </View>
             </View>
             <View style={styles.controlValueContainer}>
@@ -444,129 +421,44 @@ export default function ScenarioScreen() {
             <Text style={styles.sliderLabel}>45°C</Text>
           </View>
           <View style={styles.impactBadge}>
-            <Text style={styles.impactText}>UI parameter only</Text>
+            <Text style={styles.impactText}>{t("uiParameterOnly")}</Text>
           </View>
         </View>
-
-        {/* Fertilizer Control */}
-        {/* <View style={styles.controlCard}>
-          <View style={styles.controlHeader}>
-            <View style={styles.controlLeft}>
-              <View style={[styles.controlIcon, { backgroundColor: '#F1F8F4' }]}>
-                <Ionicons name="nutrition" size={20} color="#2E7D32" />
-              </View>
-              <View>
-                <Text style={styles.controlTitle}>Fertilizer</Text>
-                <Text style={styles.controlSubtitle}>Application level</Text>
-              </View>
-            </View>
-            <View style={styles.controlValueContainer}>
-              <Text style={styles.controlValue}>{fertilizer}</Text>
-              <Text style={styles.controlUnit}>%</Text>
-            </View>
-          </View>
-          <Slider
-            minimumValue={0}
-            maximumValue={100}
-            step={5}
-            value={fertilizer}
-            onValueChange={setFertilizer}
-            minimumTrackTintColor="#2E7D32"
-            maximumTrackTintColor="#E0E0E0"
-            thumbTintColor="#2E7D32"
-            style={styles.slider}
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>0</Text>
-            <Text style={styles.sliderLabel}>50</Text>
-            <Text style={styles.sliderLabel}>100%</Text>
-          </View>
-          <View style={styles.impactBadge}>
-  <Text style={styles.impactText}>
-    UI parameter only
-  </Text>
-</View>
-        </View> */}
-
-        {/* Sunlight Control */}
-        {/* <View style={styles.controlCard}>
-          <View style={styles.controlHeader}>
-            <View style={styles.controlLeft}>
-              <View style={[styles.controlIcon, { backgroundColor: '#FFF9C4' }]}>
-                <Ionicons name="sunny" size={20} color="#F9A825" />
-              </View>
-              <View>
-                <Text style={styles.controlTitle}>Sunlight</Text>
-                <Text style={styles.controlSubtitle}>Daily exposure</Text>
-              </View>
-            </View>
-            <View style={styles.controlValueContainer}>
-              <Text style={styles.controlValue}>{sunlight}</Text>
-              <Text style={styles.controlUnit}>hrs</Text>
-            </View>
-          </View>
-          <Slider
-            minimumValue={0}
-            maximumValue={12}
-            step={1}
-            value={sunlight}
-            onValueChange={setSunlight}
-            minimumTrackTintColor="#F9A825"
-            maximumTrackTintColor="#E0E0E0"
-            thumbTintColor="#F9A825"
-            style={styles.slider}
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>0</Text>
-            <Text style={styles.sliderLabel}>6</Text>
-            <Text style={styles.sliderLabel}>12 hrs</Text>
-          </View>
-         <View style={styles.impactBadge}>
-  <Text style={styles.impactText}>
-    UI parameter only
-  </Text>
-</View>
-        </View> */}
       </View>
 
-      {/* Insights Card */}
       <View style={styles.insightsCard}>
         <View style={styles.insightsHeader}>
           <Ionicons name="bulb" size={20} color="#F9A825" />
-          <Text style={styles.insightsTitle}>Optimization Insights</Text>
+          <Text style={styles.insightsTitle}>{t("optimizationInsights")}</Text>
         </View>
         {isPositiveChange ? (
           <Text style={styles.insightsText}>
-            Great! Your current parameters are predicted to increase yield by{" "}
+            {t("greatCurrentParametersIncreaseYield")}{" "}
             <Text style={styles.insightsBold}>{yieldChange}%</Text>.
-            {irrigation > 5 &&
-              " Consider maintaining higher irrigation levels."}
-            {temperature >= 28 &&
-              temperature <= 32 &&
-              " Temperature is in optimal range."}
+            {irrigation > 5 ? ` ${t("maintainHigherIrrigation")}` : ""}
+            {temperature >= 28 && temperature <= 32
+              ? ` ${t("temperatureOptimalRange")}`
+              : ""}
           </Text>
         ) : (
           <Text style={styles.insightsText}>
-            Your current parameters may decrease yield by{" "}
+            {t("currentParametersMayDecreaseYield")}{" "}
             <Text style={styles.insightsBold}>
               {Math.abs(parseFloat(yieldChange))}%
             </Text>
             .
-            {temperature > 35 &&
-              " Try reducing heat stress with shade or cooling."}
-            {irrigation < 3 && " Increase irrigation to improve yield."}
+            {temperature > 35 ? ` ${t("reduceHeatStress")}` : ""}
+            {irrigation < 3 ? ` ${t("increaseIrrigationImproveYield")}` : ""}
           </Text>
         )}
       </View>
 
-      {/* Info Card */}
       <View style={styles.infoCard}>
         <View style={styles.infoIconContainer}>
           <Ionicons name="information-circle" size={20} color="#1976D2" />
         </View>
         <Text style={styles.infoText}>
-          Predictions are based on simplified simulation models. Production
-          version will use trained ML ensemble for more accurate forecasting.
+          {t("scenarioInfoNote")}
         </Text>
       </View>
     </ScrollView>

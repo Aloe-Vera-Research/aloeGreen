@@ -13,11 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function CaptureLeafScreen() {
-  // const API_URL = "http://192.168.1.4:8000/api/detect";
-  const API_URL = "http://192.168.1.4:8000/api/disease/detect";
+  const API_URL = "http://192.168.8.158:8000/api/disease/detect";
   const router = useRouter();
+  const { t } = useLanguage();
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
 
@@ -38,7 +40,6 @@ export default function CaptureLeafScreen() {
       useNativeDriver: true,
     }).start();
 
-    // Pulsing frame animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -54,7 +55,6 @@ export default function CaptureLeafScreen() {
       ])
     ).start();
 
-    // Scanning line animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(scanLineAnim, {
@@ -70,7 +70,6 @@ export default function CaptureLeafScreen() {
       ])
     ).start();
 
-    // Corner glow animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(cornerAnim, {
@@ -99,10 +98,7 @@ export default function CaptureLeafScreen() {
 
   const handleCapture = async () => {
     if (!hasPermission) {
-      Alert.alert(
-        "Permission Required",
-        "Camera permission is needed to scan leaves"
-      );
+      Alert.alert(t("permissionRequired"), t("cameraPermissionNeeded"));
       return;
     }
 
@@ -115,8 +111,6 @@ export default function CaptureLeafScreen() {
 
     if (!result.canceled) {
       setSelectedImage(result.assets[0].uri);
-      // Navigate to analyzing screen
-      // router.push("/disease-management/analyzing");
     }
   };
 
@@ -130,23 +124,22 @@ export default function CaptureLeafScreen() {
 
     if (!result.canceled) {
       setSelectedImage(result.assets[0].uri);
-      // Navigate to analyzing screen
-      // router.push("/disease-management/analyzing");
     }
   };
-const analyzeImage = async () => {
-  if (!selectedImage) {
-    Alert.alert("No image", "Please capture or select an image first.");
-    return;
-  }
 
-  router.push({
-    pathname: "/disease-management/analyzing",
-    params: {
-      imageUri: selectedImage,
-    },
-  });
-};
+  const analyzeImage = async () => {
+    if (!selectedImage) {
+      Alert.alert(t("noImage"), t("captureOrSelectImageFirst"));
+      return;
+    }
+
+    router.push({
+      pathname: "/disease-management/analyzing",
+      params: {
+        imageUri: selectedImage,
+      },
+    });
+  };
 
   return (
     <>
@@ -156,7 +149,6 @@ const analyzeImage = async () => {
         style={styles.container}
       >
         <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          {/* Back Button */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -165,15 +157,13 @@ const analyzeImage = async () => {
             <Ionicons name="arrow-back" size={24} color="#1B5E20" />
           </TouchableOpacity>
 
-          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Scan Aloe Leaf</Text>
+            <Text style={styles.title}>{t("scanAloeLeaf")}</Text>
             <Text style={styles.subtitle}>
-              Position the leaf clearly within the frame for accurate detection
+              {t("positionLeafClearly")}
             </Text>
           </View>
 
-          {/* Camera Frame with Animation */}
           <View style={styles.frameContainer}>
             <Animated.View
               style={[
@@ -181,7 +171,6 @@ const analyzeImage = async () => {
                 { transform: [{ scale: pulseAnim }] },
               ]}
             >
-              {/* Animated corners */}
               <Animated.View
                 style={[styles.cornerTL, { opacity: cornerOpacity }]}
               />
@@ -195,7 +184,6 @@ const analyzeImage = async () => {
                 style={[styles.cornerBR, { opacity: cornerOpacity }]}
               />
 
-              {/* Scanning line */}
               <Animated.View
                 style={[
                   styles.scanLine,
@@ -205,7 +193,6 @@ const analyzeImage = async () => {
                 ]}
               />
 
-              {/* Content */}
               {selectedImage ? (
                 <Image
                   source={{ uri: selectedImage }}
@@ -216,7 +203,7 @@ const analyzeImage = async () => {
                   <View style={styles.iconContainer}>
                     <Ionicons name="leaf-outline" size={72} color="#81C784" />
                   </View>
-                  <Text style={styles.frameText}>Align leaf here</Text>
+                  <Text style={styles.frameText}>{t("alignLeafHere")}</Text>
                   <View style={styles.gridOverlay}>
                     <View style={styles.gridLine} />
                     <View style={[styles.gridLine, styles.gridLineVertical]} />
@@ -225,44 +212,39 @@ const analyzeImage = async () => {
               )}
             </Animated.View>
 
-            {/* Info Badge */}
             <View style={styles.infoBadge}>
               <Ionicons name="information-circle" size={16} color="#2E7D32" />
-              <Text style={styles.infoBadgeText}>Detection ready</Text>
+              <Text style={styles.infoBadgeText}>{t("detectionReady")}</Text>
             </View>
           </View>
 
-          {/* Tips Section */}
           <View style={styles.tipsContainer}>
             <View style={styles.tipRow}>
               <View style={styles.tipIconBg}>
                 <Ionicons name="sunny-outline" size={18} color="#F57C00" />
               </View>
-              <Text style={styles.tipText}>Use natural light</Text>
+              <Text style={styles.tipText}>{t("useNaturalLight")}</Text>
             </View>
             <View style={styles.tipRow}>
               <View style={styles.tipIconBg}>
                 <Ionicons name="eye-outline" size={18} color="#1976D2" />
               </View>
-              <Text style={styles.tipText}>Focus on leaf surface</Text>
+              <Text style={styles.tipText}>{t("focusLeafSurface")}</Text>
             </View>
             <View style={styles.tipRow}>
               <View style={styles.tipIconBg}>
                 <Ionicons name="hand-left-outline" size={18} color="#7B1FA2" />
               </View>
-              <Text style={styles.tipText}>Hold steady</Text>
+              <Text style={styles.tipText}>{t("holdSteady")}</Text>
             </View>
           </View>
 
-          {/* Action Buttons */}
           <View style={styles.actionsContainer}>
             {selectedImage && (
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={styles.analyzeButton}
-                // onPress={() => router.push("/disease-management/analyzing")}
                 onPress={analyzeImage}
-
               >
                 <LinearGradient
                   colors={["#2E7D32", "#1B5E20"]}
@@ -271,7 +253,7 @@ const analyzeImage = async () => {
                   style={styles.analyzeButtonGradient}
                 >
                   <Ionicons name="search" size={22} color="#fff" />
-                  <Text style={styles.analyzeButtonText}>Analyze Now</Text>
+                  <Text style={styles.analyzeButtonText}>{t("analyzeNow")}</Text>
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </LinearGradient>
               </TouchableOpacity>
@@ -297,7 +279,7 @@ const analyzeImage = async () => {
                     selectedImage && styles.actionButtonTextSecondary,
                   ]}
                 >
-                  {selectedImage ? "Retake" : "Capture"}
+                  {selectedImage ? t("retake") : t("capture")}
                 </Text>
               </TouchableOpacity>
 
@@ -310,7 +292,7 @@ const analyzeImage = async () => {
                 onPress={handleGallery}
               >
                 <Ionicons name="image-outline" size={24} color="#2E7D32" />
-                <Text style={styles.actionButtonTextOutline}>Gallery</Text>
+                <Text style={styles.actionButtonTextOutline}>{t("gallery")}</Text>
               </TouchableOpacity>
             </View>
           </View>

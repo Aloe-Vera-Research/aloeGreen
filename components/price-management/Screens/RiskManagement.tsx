@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useAxios from "@/hooks/useAxios";
+import { useLanguage } from "@/context/LanguageContext";
 
 type RiskData = {
   latest: {
@@ -50,6 +51,8 @@ const IconMap: Record<string, React.ElementType> = {
 
 export default function RiskManagement() {
   const axios = useAxios();
+  const { t } = useLanguage();
+
   const [riskData, setRiskData] = useState<RiskData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,19 +70,17 @@ export default function RiskManagement() {
       }
     } catch (err: any) {
       console.error("Failed to fetch risk analysis", err);
-      setError("Failed to load risk analysis. Please try again.");
+      setError(t("failedToLoadRiskAnalysis"));
       setRiskData(null);
     } finally {
       setLoading(false);
     }
-  }, [axios]);
+  }, [axios, t]);
 
-  // Fetch on mount
   useEffect(() => {
     fetchRiskAnalysis();
   }, [fetchRiskAnalysis]);
 
-  // Refetch whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchRiskAnalysis();
@@ -90,7 +91,7 @@ export default function RiskManagement() {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={{ marginTop: 10, color: "#666" }}>Loading risk analysis...</Text>
+        <Text style={{ marginTop: 10, color: "#666" }}>{t("loadingRiskAnalysis")}</Text>
       </SafeAreaView>
     );
   }
@@ -111,7 +112,7 @@ export default function RiskManagement() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Leaf size={28} color="#ffffff" />
             <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "700" }}>
-              Risk Management
+              {t("riskManagement")}
             </Text>
           </View>
         </View>
@@ -126,14 +127,12 @@ export default function RiskManagement() {
   const latest = riskData.latest;
   const RiskIcon = IconMap[risk.icon] || AlertCircle;
 
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 30 }}
       >
-        {/* ================= HEADER ================= */}
         <View
           style={{
             backgroundColor: "#16a34a",
@@ -148,16 +147,15 @@ export default function RiskManagement() {
             <Leaf size={28} color="#ffffff" />
             <View>
               <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "700" }}>
-                Risk Management
+                {t("riskManagement")}
               </Text>
               <Text style={{ color: "#dcfce7", marginTop: 6, fontSize: 13 }}>
-                Latest: {latest.date} ({latest.productionQuantity} kg)
+                {t("latest")}: {latest.date} ({latest.productionQuantity} kg)
               </Text>
             </View>
           </View>
         </View>
 
-        {/* ================= CURRENT RISK ================= */}
         <View
           style={{
             backgroundColor: "#ffffff",
@@ -180,7 +178,7 @@ export default function RiskManagement() {
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827" }}>
-              Current Risk Level
+              {t("currentRiskLevel")}
             </Text>
 
             <View
@@ -240,47 +238,44 @@ export default function RiskManagement() {
           </View>
         </View>
 
-        {/* ================= IMPACT ================= */}
         <View style={{ marginHorizontal: 16, marginTop: 24 }}>
           <Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 12 }}>
-            Impact on Farm
+            {t("impactOnFarm")}
           </Text>
 
           <ImpactCard
             icon={<TrendingDown size={20} color="#c2410c" />}
             bg="#fed7aa"
-            title="Yield Impact"
+            title={t("yieldImpact")}
             desc={risk.yield_impact}
           />
 
           <ImpactCard
             icon={<TrendingUp size={20} color="#15803d" />}
             bg="#dcfce7"
-            title="Market Price Impact"
+            title={t("marketPriceImpact")}
             desc={risk.price_impact}
           />
         </View>
 
-        {/* ================= FINANCIAL DATA ================= */}
         <View style={{ marginHorizontal: 16, marginTop: 24 }}>
           <Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 12 }}>
-            Current Data
+            {t("currentData")}
           </Text>
 
-          <DataRow label="Production Cost" value={`Rs. ${latest.totalCost.toLocaleString()}`} />
-          <DataRow label="Farm Gate Price" value={`Rs. ${latest.farmerPrice}/kg`} />
-          <DataRow label="Web Market Price" value={`Rs. ${latest.webPrice}/kg`} />
+          <DataRow label={t("productionCost")} value={`Rs. ${latest.totalCost.toLocaleString()}`} />
+          <DataRow label={t("farmGatePrice")} value={`Rs. ${latest.farmerPrice}/kg`} />
+          <DataRow label={t("webMarketPrice")} value={`Rs. ${latest.webPrice}/kg`} />
           <DataRow
-            label="Price Difference"
+            label={t("priceDifference")}
             value={`Rs. ${latest.priceDifference}/kg`}
             color={latest.priceDifference >= 0 ? "#15803d" : "#dc2626"}
           />
         </View>
 
-        {/* ================= RECOMMENDATIONS ================= */}
         <View style={{ marginHorizontal: 16, marginTop: 24 }}>
           <Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 12 }}>
-            Recommended Actions
+            {t("recommendedActions")}
           </Text>
 
           {risk.recommendations.map((rec, index) => (
@@ -312,8 +307,6 @@ export default function RiskManagement() {
     </SafeAreaView>
   );
 }
-
-/* ================= SMALL COMPONENT ================= */
 
 function ImpactCard({
   icon,

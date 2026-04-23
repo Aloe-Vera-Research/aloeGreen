@@ -1,21 +1,21 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-
-const { width } = Dimensions.get("window");
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function FertilizerManagementIntro() {
   const router = useRouter();
+  const { t } = useLanguage();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -42,7 +42,6 @@ export default function FertilizerManagementIntro() {
       }),
     ]).start();
 
-    // Subtle rotating animation for the icon
     Animated.loop(
       Animated.sequence([
         Animated.timing(iconRotate, {
@@ -64,34 +63,46 @@ export default function FertilizerManagementIntro() {
     outputRange: ["-5deg", "5deg"],
   });
 
-  const features = [
-    {
-      icon: "flask" as const,
-      title: "Smart Analysis",
-      description: "AI-powered soil & plant assessment",
-    },
-    {
-      icon: "hardware-chip" as const,
-      title: "IoT Integration",
-      description: "Real-time sensor data monitoring",
-    },
-    {
-      icon: "nutrition" as const,
-      title: "Custom Plans",
-      description: "Personalized fertilizer recommendations",
-    },
-  ];
+  const features = useMemo(
+    () => [
+      {
+        icon: "flask" as const,
+        title: t("smartAnalysis"),
+        description: t("aiPoweredSoilPlantAssessment"),
+      },
+      {
+        icon: "hardware-chip" as const,
+        title: t("iotIntegration"),
+        description: t("realTimeSensorMonitoring"),
+      },
+      {
+        icon: "nutrition" as const,
+        title: t("customPlans"),
+        description: t("personalizedFertilizerRecommendations"),
+      },
+    ],
+    [t]
+  );
+
+  const benefits = useMemo(
+    () => [
+      t("benefitNpkAnalysis"),
+      t("benefitSoilPhMoisture"),
+      t("benefitStageSpecificDosage"),
+      t("benefitApplicationTimingMethods"),
+    ],
+    [t]
+  );
 
   return (
     <LinearGradient
       colors={["#E8F5E9", "#C8E6C9", "#A5D6A7"]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
         <Animated.View
           style={[
             styles.headerSection,
@@ -114,11 +125,10 @@ export default function FertilizerManagementIntro() {
             </View>
           </Animated.View>
 
-          <Text style={styles.mainTitle}>Fertilizer</Text>
-          <Text style={styles.subtitle}>Management System</Text>
+          <Text style={styles.mainTitle}>{t("fertilizer")}</Text>
+          <Text style={styles.subtitle}>{t("managementSystem")}</Text>
         </Animated.View>
 
-        {/* Main Card */}
         <Animated.View
           style={[
             styles.card,
@@ -128,14 +138,11 @@ export default function FertilizerManagementIntro() {
             },
           ]}
         >
-          <Text style={styles.cardTitle}>Optimize Your Crop Nutrition</Text>
+          <Text style={styles.cardTitle}>{t("optimizeCropNutrition")}</Text>
           <Text style={styles.description}>
-            Get data-driven fertilizer recommendations tailored to your Aloe Vera
-            farm. Our system analyzes soil conditions, plant growth stages, and
-            real-time IoT sensor data to create the perfect nutrition plan.
+            {t("fertilizerIntroDescription")}
           </Text>
 
-          {/* Feature Pills */}
           <View style={styles.featuresContainer}>
             {features.map((feature, index) => (
               <Animated.View
@@ -168,16 +175,10 @@ export default function FertilizerManagementIntro() {
             ))}
           </View>
 
-          {/* What You'll Get Section */}
           <View style={styles.benefitsContainer}>
-            <Text style={styles.benefitsTitle}>What You'll Get:</Text>
+            <Text style={styles.benefitsTitle}>{t("whatYouWillGet")}</Text>
             <View style={styles.benefitsList}>
-              {[
-                "NPK (Nitrogen, Phosphorus, Potassium) level analysis",
-                "Soil pH and moisture recommendations",
-                "Stage-specific fertilizer dosage",
-                "Application timing and methods",
-              ].map((benefit, index) => (
+              {benefits.map((benefit, index) => (
                 <View key={index} style={styles.benefitItem}>
                   <Ionicons name="checkmark-circle" size={18} color="#2E7D32" />
                   <Text style={styles.benefitText}>{benefit}</Text>
@@ -186,7 +187,6 @@ export default function FertilizerManagementIntro() {
             </View>
           </View>
 
-          {/* CTA Button */}
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.button}
@@ -199,23 +199,21 @@ export default function FertilizerManagementIntro() {
               style={styles.buttonGradient}
             >
               <Ionicons name="flask" size={24} color="#fff" />
-              <Text style={styles.buttonText}>Create Fertilizer Plan</Text>
+              <Text style={styles.buttonText}>{t("createFertilizerPlan")}</Text>
               <Ionicons name="arrow-forward" size={20} color="#fff" />
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Secondary Action */}
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.secondaryButton}
             onPress={() => router.push("/fertilizer-management/history")}
           >
             <Ionicons name="document-text-outline" size={20} color="#2E7D32" />
-            <Text style={styles.secondaryButtonText}>View Past Plans</Text>
+            <Text style={styles.secondaryButtonText}>{t("viewPastPlans")}</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Info Banner */}
         <Animated.View
           style={[
             styles.infoBanner,
@@ -226,7 +224,7 @@ export default function FertilizerManagementIntro() {
         >
           <Ionicons name="information-circle" size={20} color="#1B5E20" />
           <Text style={styles.infoText}>
-            Ensure IoT sensors are active for accurate readings
+            {t("ensureIotSensorsActive")}
           </Text>
         </Animated.View>
       </ScrollView>

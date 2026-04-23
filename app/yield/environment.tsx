@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import mqtt, { MqttClient } from "mqtt";
+import { useLanguage } from "../../context/LanguageContext";
 
 const { width } = Dimensions.get("window");
 
@@ -33,7 +34,6 @@ type SensorPayload = {
   uptime_ms?: number;
 };
 
-// HiveMQ Cloud
 const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
 const HIVEMQ_PORT = 8884;
 const MQTT_TOPIC = "aloeGreen/device01/data";
@@ -41,15 +41,21 @@ const MQTT_USERNAME = "eesara";
 const MQTT_PASSWORD = "Eesara@123";
 
 export default function EnvironmentScreen() {
+  const { t } = useLanguage();
+
   const [sensorData, setSensorData] = useState<SensorPayload | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [lastSync, setLastSync] = useState("Waiting for data...");
+  const [lastSync, setLastSync] = useState(t("waitingForData"));
   const [messageCount, setMessageCount] = useState(0);
 
   const clientRef = useRef<MqttClient | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    setLastSync(t("waitingForData"));
+  }, [t]);
 
   useEffect(() => {
     Animated.parallel([
@@ -142,7 +148,7 @@ export default function EnvironmentScreen() {
 
         const now = new Date();
         setLastSync(
-          `Today • ${now.toLocaleTimeString([], {
+          `${t("today")} • ${now.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
@@ -179,16 +185,27 @@ export default function EnvironmentScreen() {
   const soilMoistureRaw = sensorData?.soil_moisture_raw ?? 0;
   const humidity = sensorData?.humidity_pct ?? 0;
   const rainfall = sensorData?.rainfall_mm ?? 0;
-  const lux = sensorData?.light_lux ?? 0;
-  const soilPH = sensorData?.soil_ph ?? 0;
-  const soilEC = sensorData?.soil_ec ?? 0;
-  const nitrogen = sensorData?.nitrogen ?? 0;
-  const phosphorus = sensorData?.phosphorus ?? 0;
-  const potassium = sensorData?.potassium ?? 0;
 
-  const dhtOk = sensorData?.dht_ok ?? false;
-  const lightOk = sensorData?.light_ok ?? false;
-  const modbusOk = sensorData?.modbus_ok ?? false;
+  const lux = sensorData?.light_lux;
+  const soilPH = sensorData?.soil_ph;
+  const soilEC = sensorData?.soil_ec;
+  const nitrogen = sensorData?.nitrogen;
+  const phosphorus = sensorData?.phosphorus;
+  const potassium = sensorData?.potassium;
+
+  const dhtOk =
+    sensorData?.dht_ok ??
+    (sensorData?.temperature_c != null && sensorData?.humidity_pct != null);
+
+  const lightOk = sensorData?.light_ok ?? (sensorData?.light_lux != null);
+
+  const modbusOk =
+    sensorData?.modbus_ok ??
+    (sensorData?.soil_ph != null ||
+      sensorData?.soil_ec != null ||
+      sensorData?.nitrogen != null ||
+      sensorData?.phosphorus != null ||
+      sensorData?.potassium != null);
 
   const soilMoisturePercent = useMemo(() => {
     const percent = ((4095 - soilMoistureRaw) / 4095) * 100;
@@ -197,41 +214,41 @@ export default function EnvironmentScreen() {
 
   const getTemperatureStatus = () => {
     if (!dhtOk) {
-      return { level: "No Data", color: "#9E9E9E", icon: "remove-circle" as const };
+      return { level: t("noData"), color: "#9E9E9E", icon: "remove-circle" as const };
     }
     if (temperature > 35) {
-      return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
+      return { level: t("critical"), color: "#D32F2F", icon: "alert-circle" as const };
     }
     if (temperature > 30) {
-      return { level: "Warning", color: "#F57C00", icon: "warning" as const };
+      return { level: t("warning"), color: "#F57C00", icon: "warning" as const };
     }
-    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
+    return { level: t("optimal"), color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const getMoistureStatus = () => {
     if (soilMoisturePercent < 30) {
-      return { level: "Critical", color: "#D32F2F", icon: "alert-circle" as const };
+      return { level: t("critical"), color: "#D32F2F", icon: "alert-circle" as const };
     }
     if (soilMoisturePercent < 40) {
-      return { level: "Low", color: "#F57C00", icon: "warning" as const };
+      return { level: t("low"), color: "#F57C00", icon: "warning" as const };
     }
     if (soilMoisturePercent > 70) {
-      return { level: "High", color: "#1976D2", icon: "information-circle" as const };
+      return { level: t("high"), color: "#1976D2", icon: "information-circle" as const };
     }
-    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
+    return { level: t("optimal"), color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const getHumidityStatus = () => {
     if (!dhtOk) {
-      return { level: "No Data", color: "#9E9E9E", icon: "remove-circle" as const };
+      return { level: t("noData"), color: "#9E9E9E", icon: "remove-circle" as const };
     }
     if (humidity > 80) {
-      return { level: "High", color: "#1976D2", icon: "information-circle" as const };
+      return { level: t("high"), color: "#1976D2", icon: "information-circle" as const };
     }
     if (humidity < 40) {
-      return { level: "Low", color: "#F57C00", icon: "warning" as const };
+      return { level: t("low"), color: "#F57C00", icon: "warning" as const };
     }
-    return { level: "Optimal", color: "#2E7D32", icon: "checkmark-circle" as const };
+    return { level: t("optimal"), color: "#2E7D32", icon: "checkmark-circle" as const };
   };
 
   const tempStatus = getTemperatureStatus();
@@ -263,7 +280,7 @@ export default function EnvironmentScreen() {
   const sensors = [
     {
       id: 1,
-      label: "Temperature",
+      label: t("temperature"),
       value: dhtOk ? Number(temperature).toFixed(1) : "--",
       unit: "°C",
       icon: "thermometer-outline",
@@ -274,7 +291,7 @@ export default function EnvironmentScreen() {
     },
     {
       id: 2,
-      label: "Soil Moisture",
+      label: t("soilMoisture"),
       value: Math.round(soilMoisturePercent).toString(),
       unit: "%",
       icon: "water-outline",
@@ -285,7 +302,7 @@ export default function EnvironmentScreen() {
     },
     {
       id: 3,
-      label: "Humidity",
+      label: t("humidity"),
       value: dhtOk ? Number(humidity).toFixed(1) : "--",
       unit: "%",
       icon: "cloud-outline",
@@ -296,13 +313,13 @@ export default function EnvironmentScreen() {
     },
     {
       id: 4,
-      label: "Rainfall",
+      label: t("rainfall"),
       value: Number(rainfall).toFixed(2),
       unit: "mm",
       icon: "rainy-outline",
       gradient: ["#66BB6A", "#43A047"],
-      status: { level: "Live", color: "#546E7A", icon: "water" as const },
-      optimal: "Accumulated",
+      status: { level: t("live"), color: "#546E7A", icon: "water" as const },
+      optimal: t("accumulated"),
       progress: Math.max(0, Math.min(rainfall / 10, 1)),
     },
   ];
@@ -318,8 +335,8 @@ export default function EnvironmentScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>Environment Monitor</Text>
-            <Text style={styles.subtitle}>Real-time IoT sensor data</Text>
+            <Text style={styles.title}>{t("environmentMonitor")}</Text>
+            <Text style={styles.subtitle}>{t("realTimeIotSensorData")}</Text>
           </View>
 
           <TouchableOpacity
@@ -339,7 +356,7 @@ export default function EnvironmentScreen() {
             ]}
           />
           <Text style={styles.connectionText}>
-            {isConnected ? "Connected to HiveMQ Live Feed" : "Disconnected"}
+            {isConnected ? t("connectedToHiveMqLiveFeed") : t("disconnected")}
           </Text>
         </View>
 
@@ -355,7 +372,7 @@ export default function EnvironmentScreen() {
           >
             <View style={styles.healthContent}>
               <View style={styles.healthLeft}>
-                <Text style={styles.healthLabel}>Farm Health Score</Text>
+                <Text style={styles.healthLabel}>{t("farmHealthScore")}</Text>
                 <View style={styles.scoreContainer}>
                   <Text style={[styles.scoreValue, { color: healthColor }]}>
                     {healthScore}
@@ -364,10 +381,10 @@ export default function EnvironmentScreen() {
                 </View>
                 <Text style={styles.healthStatus}>
                   {healthScore >= 80
-                    ? "Excellent Conditions"
+                    ? t("excellentConditions")
                     : healthScore >= 60
-                    ? "Monitor Closely"
-                    : "Action Required"}
+                    ? t("monitorClosely")
+                    : t("actionRequired")}
                 </Text>
               </View>
 
@@ -392,17 +409,17 @@ export default function EnvironmentScreen() {
       {!hasLiveData && (
         <View style={styles.analysisSection}>
           <View style={styles.analysisCard}>
-            <Text style={styles.analysisLabel}>Waiting for first MQTT message</Text>
+            <Text style={styles.analysisLabel}>{t("waitingForFirstMqttMessage")}</Text>
             <Text style={styles.analysisDescription}>
-              Broker connection is {isConnected ? "active" : "not active"}.
-              Once a payload arrives on {MQTT_TOPIC}, the cards will update here.
+              {t("brokerConnectionIs")} {isConnected ? t("activeLower") : t("notActive")}.{" "}
+              {t("oncePayloadArrives")} {MQTT_TOPIC}, {t("cardsWillUpdateHere")}
             </Text>
           </View>
         </View>
       )}
 
       <View style={styles.sensorsSection}>
-        <Text style={styles.sectionTitle}>Sensor Readings</Text>
+        <Text style={styles.sectionTitle}>{t("sensorReadings")}</Text>
         <View style={styles.grid}>
           {sensors.map((sensor, index) => (
             <Animated.View
@@ -438,7 +455,9 @@ export default function EnvironmentScreen() {
                     <Text style={styles.sensorValue}>{sensor.value}</Text>
                     <Text style={styles.sensorUnit}>{sensor.unit}</Text>
                   </View>
-                  <Text style={styles.optimalText}>Optimal: {sensor.optimal}</Text>
+                  <Text style={styles.optimalText}>
+                    {t("optimal")}: {sensor.optimal}
+                  </Text>
                 </View>
 
                 <View style={styles.progressBar}>
@@ -480,7 +499,7 @@ export default function EnvironmentScreen() {
       </View>
 
       <View style={styles.analysisSection}>
-        <Text style={styles.sectionTitle}>Stress Indicators</Text>
+        <Text style={styles.sectionTitle}>{t("stressIndicators")}</Text>
         <View style={styles.analysisCard}>
           <View style={styles.analysisItem}>
             <View style={styles.analysisLeft}>
@@ -488,15 +507,15 @@ export default function EnvironmentScreen() {
                 <Ionicons name="flame-outline" size={20} color={tempStatus.color} />
               </View>
               <View>
-                <Text style={styles.analysisLabel}>Heat Stress</Text>
+                <Text style={styles.analysisLabel}>{t("heatStress")}</Text>
                 <Text style={styles.analysisDescription}>
                   {!dhtOk
-                    ? "Temperature sensor data unavailable"
+                    ? t("temperatureSensorDataUnavailable")
                     : temperature > 35
-                    ? "Provide shade & increase watering"
+                    ? t("provideShadeIncreaseWatering")
                     : temperature > 30
-                    ? "Monitor plant health"
-                    : "Temperature within range"}
+                    ? t("monitorPlantHealth")
+                    : t("temperatureWithinRange")}
                 </Text>
               </View>
             </View>
@@ -520,13 +539,13 @@ export default function EnvironmentScreen() {
                 <Ionicons name="water-outline" size={20} color={moistureStatus.color} />
               </View>
               <View>
-                <Text style={styles.analysisLabel}>Water Stress</Text>
+                <Text style={styles.analysisLabel}>{t("waterStress")}</Text>
                 <Text style={styles.analysisDescription}>
                   {soilMoisturePercent < 30
-                    ? "Immediate irrigation needed"
+                    ? t("immediateIrrigationNeeded")
                     : soilMoisturePercent < 40
-                    ? "Schedule irrigation soon"
-                    : "Moisture levels adequate"}
+                    ? t("scheduleIrrigationSoon")
+                    : t("moistureLevelsAdequate")}
                 </Text>
               </View>
             </View>
@@ -545,7 +564,7 @@ export default function EnvironmentScreen() {
       </View>
 
       <View style={styles.recommendationsSection}>
-        <Text style={styles.sectionTitle}>Smart Recommendations</Text>
+        <Text style={styles.sectionTitle}>{t("smartRecommendations")}</Text>
 
         {dhtOk && temperature > 30 && (
           <View style={[styles.recommendationCard, styles.warningCard]}>
@@ -553,9 +572,9 @@ export default function EnvironmentScreen() {
               <Ionicons name="sunny" size={20} color="#F57C00" />
             </View>
             <View style={styles.recommendationContent}>
-              <Text style={styles.recommendationTitle}>High Temperature Alert</Text>
+              <Text style={styles.recommendationTitle}>{t("highTemperatureAlert")}</Text>
               <Text style={styles.recommendationText}>
-                Consider installing shade nets or increasing irrigation frequency to prevent heat stress.
+                {t("shadeNetRecommendation")}
               </Text>
             </View>
           </View>
@@ -567,23 +586,23 @@ export default function EnvironmentScreen() {
               <Ionicons name="water" size={20} color="#1976D2" />
             </View>
             <View style={styles.recommendationContent}>
-              <Text style={styles.recommendationTitle}>Irrigation Needed</Text>
+              <Text style={styles.recommendationTitle}>{t("irrigationNeeded")}</Text>
               <Text style={styles.recommendationText}>
-                Soil moisture is below optimal range. Schedule irrigation within the next 24 hours.
+                {t("soilMoistureBelowOptimal")}
               </Text>
             </View>
           </View>
         )}
 
-        {((!dhtOk) || temperature <= 30) && soilMoisturePercent >= 40 && (
+        {(!dhtOk || temperature <= 30) && soilMoisturePercent >= 40 && (
           <View style={[styles.recommendationCard, styles.successCard]}>
             <View style={styles.recommendationIcon}>
               <Ionicons name="checkmark-circle" size={20} color="#2E7D32" />
             </View>
             <View style={styles.recommendationContent}>
-              <Text style={styles.recommendationTitle}>Stable Conditions</Text>
+              <Text style={styles.recommendationTitle}>{t("stableConditions")}</Text>
               <Text style={styles.recommendationText}>
-                Current soil condition looks acceptable. Continue monitoring the live feed.
+                {t("currentSoilConditionAcceptable")}
               </Text>
             </View>
           </View>
@@ -591,20 +610,55 @@ export default function EnvironmentScreen() {
       </View>
 
       <View style={styles.analysisSection}>
-        <Text style={styles.sectionTitle}>Additional Readings</Text>
+        <Text style={styles.sectionTitle}>{t("additionalReadings")}</Text>
         <View style={styles.analysisCard}>
-          <Text style={styles.analysisLabel}>Device: {sensorData?.device_id ?? "--"}</Text>
-          <Text style={styles.analysisLabel}>Messages Received: {messageCount}</Text>
-          <Text style={styles.analysisLabel}>Light: {lightOk ? Number(lux).toFixed(0) : "--"} lx</Text>
-          <Text style={styles.analysisLabel}>Soil pH: {modbusOk ? Number(soilPH).toFixed(1) : "--"}</Text>
-          <Text style={styles.analysisLabel}>Soil EC: {modbusOk ? soilEC : "--"}</Text>
-          <Text style={styles.analysisLabel}>Nitrogen: {modbusOk ? nitrogen : "--"}</Text>
-          <Text style={styles.analysisLabel}>Phosphorus: {modbusOk ? phosphorus : "--"}</Text>
-          <Text style={styles.analysisLabel}>Potassium: {modbusOk ? potassium : "--"}</Text>
-          <Text style={styles.analysisLabel}>WiFi RSSI: {sensorData?.wifi_rssi ?? "--"} dBm</Text>
-          <Text style={styles.analysisLabel}>DHT Status: {dhtOk ? "OK" : "FAIL"}</Text>
-          <Text style={styles.analysisLabel}>Light Status: {lightOk ? "OK" : "FAIL"}</Text>
-          <Text style={styles.analysisLabel}>RS485 Status: {modbusOk ? "OK" : "FAIL"}</Text>
+          <Text style={styles.analysisLabel}>
+            {t("device")}: {sensorData?.device_id ?? "--"}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("messagesReceived")}: {messageCount}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("light")}: {lux != null ? Number(lux).toFixed(0) : "--"} lx
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("soilPh")}: {soilPH != null ? Number(soilPH).toFixed(1) : "--"}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("soilEc")}: {soilEC != null ? soilEC : "--"}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("nitrogen")}: {nitrogen != null ? nitrogen : "--"}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("phosphorus")}: {phosphorus != null ? phosphorus : "--"}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("potassium")}: {potassium != null ? potassium : "--"}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("wifiRssi")}: {sensorData?.wifi_rssi ?? "--"} dBm
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("dhtStatus")}: {dhtOk ? t("ok") : t("fail")}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("lightStatus")}: {lightOk ? t("ok") : t("fail")}
+          </Text>
+
+          <Text style={styles.analysisLabel}>
+            {t("rs485Status")}: {modbusOk ? t("ok") : t("fail")}
+          </Text>
         </View>
       </View>
 
@@ -616,10 +670,12 @@ export default function EnvironmentScreen() {
               { backgroundColor: isConnected ? "#4CAF50" : "#D32F2F" },
             ]}
           />
-          <Text style={styles.footerText}>Last updated: {lastSync}</Text>
+          <Text style={styles.footerText}>
+            {t("lastUpdated")}: {lastSync}
+          </Text>
         </View>
         <TouchableOpacity>
-          <Text style={styles.historyLink}>View History</Text>
+          <Text style={styles.historyLink}>{t("viewHistory")}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

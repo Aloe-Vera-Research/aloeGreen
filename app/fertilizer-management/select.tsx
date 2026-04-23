@@ -13,42 +13,14 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import mqtt, { MqttClient } from "mqtt";
+import { useLanguage } from "../../context/LanguageContext";
 
-const soilTypes = [
-  {
-    id: "Sandy",
-    icon: "water-outline",
-    description: "Fast draining, low nutrients",
-  },
-  {
-    id: "Loamy",
-    icon: "leaf-outline",
-    description: "Balanced, ideal for most plants",
-  },
-  {
-    id: "Clay",
-    icon: "layers-outline",
-    description: "Nutrient-rich, slower drainage",
-  },
-];
-
-const plantStages = [
-  {
-    id: "Baby",
-    icon: "flower-outline",
-    description: "Early growth phase",
-  },
-  {
-    id: "Mature",
-    icon: "nutrition-outline",
-    description: "Full development stage",
-  },
-  {
-    id: "Damage Recovery",
-    icon: "medkit-outline",
-    description: "Healing and repair",
-  },
-];
+const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
+const HIVEMQ_PORT = 8884;
+const MQTT_TOPIC = "aloeGreen/device01/data";
+const MQTT_USERNAME = "eesara";
+const MQTT_PASSWORD = "Eesara@123";
+const PREDICT_URL = "http://192.168.8.158:8000/api/fertilizer/predict";
 
 type SensorPayload = {
   device_id?: string;
@@ -69,17 +41,57 @@ type SensorPayload = {
   uptime_ms?: number;
 };
 
-const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
-const HIVEMQ_PORT = 8884;
-const MQTT_TOPIC = "aloeGreen/device01/data";
-const MQTT_USERNAME = "eesara";
-const MQTT_PASSWORD = "Eesara@123";
-
-// Change only this if needed
-const PREDICT_URL = "http://172.20.10.5:8000/api/fertilizer/predict";
-
 export default function FertilizerScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const soilTypes = useMemo(
+    () => [
+      {
+        id: "Sandy",
+        label: t("sandy"),
+        icon: "water-outline",
+        description: t("sandyDescription"),
+      },
+      {
+        id: "Loamy",
+        label: t("loamy"),
+        icon: "leaf-outline",
+        description: t("loamyDescription"),
+      },
+      {
+        id: "Clay",
+        label: t("clay"),
+        icon: "layers-outline",
+        description: t("clayDescription"),
+      },
+    ],
+    [t]
+  );
+
+  const plantStages = useMemo(
+    () => [
+      {
+        id: "Baby",
+        label: t("baby"),
+        icon: "flower-outline",
+        description: t("babyDescription"),
+      },
+      {
+        id: "Mature",
+        label: t("mature"),
+        icon: "nutrition-outline",
+        description: t("matureDescription"),
+      },
+      {
+        id: "Damage Recovery",
+        label: t("damageRecovery"),
+        icon: "medkit-outline",
+        description: t("damageRecoveryDescription"),
+      },
+    ],
+    [t]
+  );
 
   const [step, setStep] = useState(1);
   const [soil, setSoil] = useState<string | null>(null);
@@ -151,41 +163,23 @@ export default function FertilizerScreen() {
     clientRef.current = client;
 
     client.on("connect", () => {
-      console.log("MQTT connected");
       setIsConnected(true);
       client.subscribe(MQTT_TOPIC, { qos: 0 }, (err) => {
-        if (err) {
-          console.log("Subscribe error:", err.message);
-        } else {
-          console.log("Subscribed to:", MQTT_TOPIC);
-        }
+        if (err) console.log("Subscribe error:", err.message);
       });
     });
 
-    client.on("reconnect", () => {
-      console.log("MQTT reconnecting...");
-      setIsConnected(false);
-    });
-
+    client.on("reconnect", () => setIsConnected(false));
     client.on("error", (err) => {
       console.log("MQTT error:", err.message);
       setIsConnected(false);
     });
-
-    client.on("close", () => {
-      console.log("MQTT connection closed");
-      setIsConnected(false);
-    });
-
-    client.on("offline", () => {
-      console.log("MQTT offline");
-      setIsConnected(false);
-    });
+    client.on("close", () => setIsConnected(false));
+    client.on("offline", () => setIsConnected(false));
 
     client.on("message", (_topic, message) => {
       try {
         const parsed: SensorPayload = JSON.parse(message.toString());
-        console.log("MQTT payload:", parsed);
         setSensorData(parsed);
       } catch (e) {
         console.log("Invalid MQTT payload:", e);
@@ -204,17 +198,29 @@ export default function FertilizerScreen() {
     return Math.max(0, Math.min(100, percent));
   }, [sensorData?.soil_moisture_raw]);
 
-  const temperature = sensorData?.dht_ok ? sensorData?.temperature_c ?? 0 : 0;
-  const humidity = sensorData?.dht_ok ? sensorData?.humidity_pct ?? 0 : 0;
-  const soilPH = sensorData?.modbus_ok ? sensorData?.soil_ph ?? 0 : 0;
-  const nitrogen = sensorData?.modbus_ok ? sensorData?.nitrogen ?? 0 : 0;
-  const phosphorus = sensorData?.modbus_ok ? sensorData?.phosphorus ?? 0 : 0;
-  const potassium = sensorData?.modbus_ok ? sensorData?.potassium ?? 0 : 0;
+  const dhtOk =
+    sensorData?.dht_ok ??
+    (sensorData?.temperature_c != null && sensorData?.humidity_pct != null);
+
+  const modbusOk =
+    sensorData?.modbus_ok ??
+    (sensorData?.soil_ph != null ||
+      sensorData?.nitrogen != null ||
+      sensorData?.phosphorus != null ||
+      sensorData?.potassium != null);
+
+  const temperature = dhtOk ? (sensorData?.temperature_c ?? 0) : 0;
+  const humidity = dhtOk ? (sensorData?.humidity_pct ?? 0) : 0;
+
+  const soilPH = modbusOk ? (sensorData?.soil_ph ?? 0) : 0;
+  const nitrogen = modbusOk ? (sensorData?.nitrogen ?? 0) : 0;
+  const phosphorus = modbusOk ? (sensorData?.phosphorus ?? 0) : 0;
+  const potassium = modbusOk ? (sensorData?.potassium ?? 0) : 0;
 
   const getNPKLevel = (value: number) => {
-    if (value >= 60) return "High";
-    if (value >= 30) return "Medium";
-    return "Low";
+    if (value >= 60) return t("high");
+    if (value >= 30) return t("medium");
+    return t("low");
   };
 
   const renderStepIndicator = () => (
@@ -238,7 +244,11 @@ export default function FertilizerScreen() {
             </Text>
           </View>
           <Text style={styles.stepLabel}>
-            {stepNum === 1 ? "Soil" : stepNum === 2 ? "Stage" : "Review"}
+            {stepNum === 1
+              ? t("soil")
+              : stepNum === 2
+              ? t("stage")
+              : t("review")}
           </Text>
           {stepNum < 3 && (
             <View
@@ -262,7 +272,7 @@ export default function FertilizerScreen() {
     if (!soil || !stage) return;
 
     if (!sensorData) {
-      Alert.alert("No Sensor Data", "Waiting for live MQTT sensor values.");
+      Alert.alert(t("noSensorData"), t("waitingForLiveMqtt"));
       return;
     }
 
@@ -281,9 +291,6 @@ export default function FertilizerScreen() {
         Additional_Advice: "Generated using live MQTT IoT sensor data",
       };
 
-      console.log("PREDICT_URL:", PREDICT_URL);
-      console.log("Prediction payload:", payload);
-
       const response = await fetch(PREDICT_URL, {
         method: "POST",
         headers: {
@@ -292,10 +299,7 @@ export default function FertilizerScreen() {
         body: JSON.stringify(payload),
       });
 
-      console.log("Prediction status:", response.status);
-
       const rawText = await response.text();
-      console.log("Prediction raw response:", rawText);
 
       if (!response.ok) {
         throw new Error(rawText || "Prediction request failed");
@@ -304,12 +308,9 @@ export default function FertilizerScreen() {
       let prediction: any = null;
       try {
         prediction = rawText ? JSON.parse(rawText) : null;
-      } catch (parseError) {
-        console.log("Prediction JSON parse error:", parseError);
-        throw new Error("Backend returned invalid JSON");
+      } catch {
+        throw new Error(t("backendReturnedInvalidJson"));
       }
-
-      console.log("Prediction parsed:", prediction);
 
       router.push({
         pathname: "/fertilizer-management/plan",
@@ -327,10 +328,9 @@ export default function FertilizerScreen() {
         },
       });
     } catch (error: any) {
-      console.log("Prediction error:", error);
       Alert.alert(
-        "Prediction Error",
-        error?.message || "Failed to generate fertilizer plan"
+        t("predictionError"),
+        error?.message || t("failedGenerateFertilizerPlan")
       );
     } finally {
       setPredicting(false);
@@ -358,8 +358,10 @@ export default function FertilizerScreen() {
             <Ionicons name="flask" size={32} color="#2E7D32" />
           </View>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Fertilizer Plan</Text>
-            <Text style={styles.headerSubtitle}>Optimize your crop nutrition</Text>
+            <Text style={styles.headerTitle}>{t("fertilizerPlan")}</Text>
+            <Text style={styles.headerSubtitle}>
+              {t("optimizeCropNutrition")}
+            </Text>
           </View>
         </View>
 
@@ -371,7 +373,7 @@ export default function FertilizerScreen() {
             ]}
           />
           <Text style={styles.connectionText}>
-            {isConnected ? "Connected to HiveMQ live feed" : "Disconnected"}
+            {isConnected ? t("connectedToHiveMq") : t("disconnected")}
           </Text>
         </View>
 
@@ -390,10 +392,10 @@ export default function FertilizerScreen() {
             <>
               <View style={styles.cardHeader}>
                 <Ionicons name="earth" size={28} color="#2E7D32" />
-                <Text style={styles.cardTitle}>Select Soil Type</Text>
+                <Text style={styles.cardTitle}>{t("selectSoilType")}</Text>
               </View>
               <Text style={styles.cardDescription}>
-                Choose the soil type that best matches your farm
+                {t("chooseSoilType")}
               </Text>
 
               <View style={styles.optionsContainer}>
@@ -413,7 +415,10 @@ export default function FertilizerScreen() {
                     }}
                   >
                     <TouchableOpacity
-                      style={[styles.option, soil === item.id && styles.optionSelected]}
+                      style={[
+                        styles.option,
+                        soil === item.id && styles.optionSelected,
+                      ]}
                       onPress={() => setSoil(item.id)}
                       activeOpacity={0.7}
                     >
@@ -431,7 +436,7 @@ export default function FertilizerScreen() {
                             soil === item.id && styles.optionTitleSelected,
                           ]}
                         >
-                          {item.id}
+                          {item.label}
                         </Text>
                         <Text style={styles.optionDescription}>
                           {item.description}
@@ -439,7 +444,11 @@ export default function FertilizerScreen() {
                       </View>
                       {soil === item.id && (
                         <View style={styles.checkmark}>
-                          <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#2E7D32"
+                          />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -453,10 +462,10 @@ export default function FertilizerScreen() {
             <>
               <View style={styles.cardHeader}>
                 <Ionicons name="analytics" size={28} color="#2E7D32" />
-                <Text style={styles.cardTitle}>Select Plant Stage</Text>
+                <Text style={styles.cardTitle}>{t("selectPlantStage")}</Text>
               </View>
               <Text style={styles.cardDescription}>
-                What stage are your Aloe Vera plants in?
+                {t("whatStagePlants")}
               </Text>
 
               <View style={styles.optionsContainer}>
@@ -476,7 +485,10 @@ export default function FertilizerScreen() {
                     }}
                   >
                     <TouchableOpacity
-                      style={[styles.option, stage === item.id && styles.optionSelected]}
+                      style={[
+                        styles.option,
+                        stage === item.id && styles.optionSelected,
+                      ]}
                       onPress={() => setStage(item.id)}
                       activeOpacity={0.7}
                     >
@@ -494,7 +506,7 @@ export default function FertilizerScreen() {
                             stage === item.id && styles.optionTitleSelected,
                           ]}
                         >
-                          {item.id}
+                          {item.label}
                         </Text>
                         <Text style={styles.optionDescription}>
                           {item.description}
@@ -502,7 +514,11 @@ export default function FertilizerScreen() {
                       </View>
                       {stage === item.id && (
                         <View style={styles.checkmark}>
-                          <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#2E7D32"
+                          />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -516,58 +532,70 @@ export default function FertilizerScreen() {
             <>
               <View style={styles.cardHeader}>
                 <Ionicons name="hardware-chip" size={28} color="#2E7D32" />
-                <Text style={styles.cardTitle}>Live Environmental Data</Text>
+                <Text style={styles.cardTitle}>{t("liveEnvironmentalData")}</Text>
               </View>
               <Text style={styles.cardDescription}>
-                Review current IoT readings before prediction
+                {t("reviewCurrentIotReadings")}
               </Text>
 
               <View style={styles.summaryContainer}>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Soil Type</Text>
-                  <Text style={styles.summaryValue}>{soil}</Text>
+                  <Text style={styles.summaryLabel}>{t("soilType")}</Text>
+                  <Text style={styles.summaryValue}>
+                    {soilTypes.find((s) => s.id === soil)?.label || soil}
+                  </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Plant Stage</Text>
-                  <Text style={styles.summaryValue}>{stage}</Text>
+                  <Text style={styles.summaryLabel}>{t("plantStage")}</Text>
+                  <Text style={styles.summaryValue}>
+                    {plantStages.find((s) => s.id === stage)?.label || stage}
+                  </Text>
                 </View>
               </View>
 
               {!sensorData ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#2E7D32" />
-                  <Text style={styles.loadingText}>Waiting for MQTT sensor values...</Text>
+                  <Text style={styles.loadingText}>
+                    {t("waitingForMqttSensorValues")}
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.iotDataContainer}>
-                  <Text style={styles.sectionTitle}>IoT Sensor Readings</Text>
+                  <Text style={styles.sectionTitle}>{t("iotSensorReadings")}</Text>
 
                   <View style={styles.dataGrid}>
                     {[
                       {
                         icon: "thermometer",
-                        label: "Temperature",
-                        value: sensorData?.dht_ok ? `${Number(temperature).toFixed(1)}°C` : "--",
+                        label: t("temperature"),
+                        value: dhtOk
+                          ? `${Number(temperature).toFixed(1)}°C`
+                          : "--",
                       },
                       {
                         icon: "water",
-                        label: "Moisture",
+                        label: t("moisture"),
                         value: `${Math.round(soilMoisturePercent)}%`,
                       },
                       {
                         icon: "beaker",
-                        label: "Soil pH",
-                        value: sensorData?.modbus_ok ? Number(soilPH).toFixed(1) : "--",
+                        label: t("soilPh"),
+                        value: modbusOk ? Number(soilPH).toFixed(1) : "--",
                       },
                       {
                         icon: "cloud",
-                        label: "Humidity",
-                        value: sensorData?.dht_ok ? `${Number(humidity).toFixed(1)}%` : "--",
+                        label: t("humidity"),
+                        value: dhtOk ? `${Number(humidity).toFixed(1)}%` : "--",
                       },
                     ].map((item, index) => (
                       <View key={index} style={styles.dataCard}>
                         <View style={styles.dataIconWrapper}>
-                          <Ionicons name={item.icon as any} size={24} color="#2E7D32" />
+                          <Ionicons
+                            name={item.icon as any}
+                            size={24}
+                            color="#2E7D32"
+                          />
                         </View>
                         <Text style={styles.dataLabel}>{item.label}</Text>
                         <Text style={styles.dataValue}>{item.value}</Text>
@@ -575,12 +603,24 @@ export default function FertilizerScreen() {
                     ))}
                   </View>
 
-                  <Text style={styles.sectionTitle}>NPK Levels</Text>
+                  <Text style={styles.sectionTitle}>{t("npkLevels")}</Text>
                   <View style={styles.npkContainer}>
                     {[
-                      { label: "Nitrogen (N)", value: nitrogen, color: "#4CAF50" },
-                      { label: "Phosphorus (P)", value: phosphorus, color: "#FF9800" },
-                      { label: "Potassium (K)", value: potassium, color: "#2196F3" },
+                      {
+                        label: `${t("nitrogen")} (N)`,
+                        value: nitrogen,
+                        color: "#4CAF50",
+                      },
+                      {
+                        label: `${t("phosphorus")} (P)`,
+                        value: phosphorus,
+                        color: "#FF9800",
+                      },
+                      {
+                        label: `${t("potassium")} (K)`,
+                        value: potassium,
+                        color: "#2196F3",
+                      },
                     ].map((item, index) => {
                       const level = getNPKLevel(item.value);
                       return (
@@ -592,9 +632,9 @@ export default function FertilizerScreen() {
                                 styles.npkBadge,
                                 {
                                   backgroundColor:
-                                    level === "High"
+                                    level === t("high")
                                       ? "#4CAF50"
-                                      : level === "Medium"
+                                      : level === t("medium")
                                       ? "#FF9800"
                                       : "#F44336",
                                 },
@@ -632,7 +672,7 @@ export default function FertilizerScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="arrow-back" size={20} color="#2E7D32" />
-              <Text style={styles.backButtonText}>Back</Text>
+              <Text style={styles.backButtonText}>{t("back")}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -641,7 +681,7 @@ export default function FertilizerScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="home" size={20} color="#2E7D32" />
-              <Text style={styles.homeButtonText}>Home</Text>
+              <Text style={styles.homeButtonText}>{t("home")}</Text>
             </TouchableOpacity>
           )}
 
@@ -652,7 +692,9 @@ export default function FertilizerScreen() {
                 ? styles.buttonDisabled
                 : null,
             ]}
-            disabled={(step === 1 && !soil) || (step === 2 && !stage) || predicting}
+            disabled={
+              (step === 1 && !soil) || (step === 2 && !stage) || predicting
+            }
             onPress={handleNext}
             activeOpacity={0.85}
           >
@@ -671,7 +713,7 @@ export default function FertilizerScreen() {
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>
-                    {step < 3 ? "Continue" : "View Plan"}
+                    {step < 3 ? t("continue") : t("viewPlan")}
                   </Text>
                   <Ionicons
                     name={step < 3 ? "arrow-forward" : "document-text"}
@@ -691,31 +733,66 @@ export default function FertilizerScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 20, paddingTop: 60, paddingBottom: 40 },
-  header: { flexDirection: "row", alignItems: "center", marginBottom: 16, gap: 12 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 12,
+  },
   headerBackButton: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerIconWrapper: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerTextContainer: { flex: 1 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#1B5E20" },
   headerSubtitle: { fontSize: 14, color: "#2E7D32", fontWeight: "500" },
-  connectionRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 18 },
+  connectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 18,
+  },
   connectionDot: { width: 8, height: 8, borderRadius: 4 },
   connectionText: { fontSize: 13, color: "#616161", fontWeight: "500" },
   stepIndicatorContainer: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    marginBottom: 24, paddingHorizontal: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingHorizontal: 10,
   },
   stepItem: { flex: 1, alignItems: "center", position: "relative" },
   stepCircle: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF",
-    borderWidth: 2, borderColor: "#C8E6C9", justifyContent: "center", alignItems: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#C8E6C9",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 6,
   },
   stepCircleActive: { borderColor: "#2E7D32", backgroundColor: "#E8F5E9" },
@@ -724,83 +801,202 @@ const styles = StyleSheet.create({
   stepNumberActive: { color: "#FFFFFF" },
   stepLabel: { fontSize: 12, color: "#4E6E4E", fontWeight: "600" },
   stepConnector: {
-    position: "absolute", top: 20, left: "60%", right: "-60%", height: 2,
-    backgroundColor: "#C8E6C9", zIndex: -1,
+    position: "absolute",
+    top: 20,
+    left: "60%",
+    right: "-60%",
+    height: 2,
+    backgroundColor: "#C8E6C9",
+    zIndex: -1,
   },
   stepConnectorActive: { backgroundColor: "#2E7D32" },
   card: {
-    backgroundColor: "#FFFFFF", borderRadius: 24, padding: 24, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16,
-    elevation: 8, marginBottom: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    marginBottom: 20,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 8,
+  },
   cardTitle: { fontSize: 22, fontWeight: "700", color: "#1B5E20" },
-  cardDescription: { fontSize: 14, color: "#4E6E4E", marginBottom: 20, lineHeight: 20 },
+  cardDescription: {
+    fontSize: 14,
+    color: "#4E6E4E",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
   optionsContainer: { gap: 12 },
   option: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#F8F9FA",
-    borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "transparent",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: "transparent",
   },
   optionSelected: { backgroundColor: "#E8F5E9", borderColor: "#2E7D32" },
   optionIconWrapper: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF",
-    justifyContent: "center", alignItems: "center", marginRight: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   optionContent: { flex: 1 },
-  optionTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 2 },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1B5E20",
+    marginBottom: 2,
+  },
   optionTitleSelected: { color: "#2E7D32" },
   optionDescription: { fontSize: 13, color: "#4E6E4E" },
   checkmark: { marginLeft: 8 },
   summaryContainer: { flexDirection: "row", gap: 12, marginBottom: 20 },
-  summaryItem: { flex: 1, backgroundColor: "#F1F8F4", borderRadius: 12, padding: 14 },
-  summaryLabel: { fontSize: 12, color: "#4E6E4E", fontWeight: "600", marginBottom: 4 },
+  summaryItem: {
+    flex: 1,
+    backgroundColor: "#F1F8F4",
+    borderRadius: 12,
+    padding: 14,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: "#4E6E4E",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
   summaryValue: { fontSize: 16, fontWeight: "700", color: "#2E7D32" },
   iotDataContainer: { gap: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20", marginBottom: 12 },
-  dataGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 20 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1B5E20",
+    marginBottom: 12,
+  },
+  dataGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 20,
+  },
   dataCard: {
-    flex: 1, minWidth: "45%", backgroundColor: "#F8F9FA", borderRadius: 12,
-    padding: 14, alignItems: "center",
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
   },
   dataIconWrapper: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: "#E8F5E9",
-    justifyContent: "center", alignItems: "center", marginBottom: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  dataLabel: { fontSize: 12, color: "#4E6E4E", fontWeight: "600", marginBottom: 4 },
+  dataLabel: {
+    fontSize: 12,
+    color: "#4E6E4E",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
   dataValue: { fontSize: 18, fontWeight: "700", color: "#2E7D32" },
   npkContainer: { gap: 14 },
   npkItem: { backgroundColor: "#F8F9FA", borderRadius: 12, padding: 14 },
-  npkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  npkHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   npkLabel: { fontSize: 14, fontWeight: "600", color: "#1B5E20" },
   npkBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
   npkValue: { fontSize: 12, fontWeight: "700", color: "#FFFFFF" },
-  npkBar: { height: 8, backgroundColor: "#E0E0E0", borderRadius: 4, overflow: "hidden" },
+  npkBar: {
+    height: 8,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
   npkBarFill: { height: "100%", borderRadius: 4 },
   buttonContainer: { flexDirection: "row", gap: 12 },
   backButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    backgroundColor: "#FFFFFF", paddingVertical: 16, paddingHorizontal: 24,
-    borderRadius: 16, gap: 8, flex: 1, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 8,
+    flex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   backButtonText: { color: "#2E7D32", fontSize: 15, fontWeight: "700" },
   homeButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    backgroundColor: "#FFFFFF", paddingVertical: 16, paddingHorizontal: 24,
-    borderRadius: 16, gap: 8, flex: 1, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 8,
+    flex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   homeButtonText: { color: "#2E7D32", fontSize: 15, fontWeight: "700" },
   nextButton: {
-    flex: 2, borderRadius: 16, overflow: "hidden", shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+    flex: 2,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#2E7D32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   buttonDisabled: { shadowOpacity: 0.1 },
   nextButtonGradient: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingVertical: 16, paddingHorizontal: 24, gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 8,
   },
   nextButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  loadingContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 24 },
-  loadingText: { marginTop: 12, fontSize: 14, color: "#4E6E4E", fontWeight: "500" },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#4E6E4E",
+    fontWeight: "500",
+  },
 });

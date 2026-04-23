@@ -3,7 +3,7 @@ import axios, { AxiosInstance } from "axios";
 import Constants from "expo-constants";
 
 
-const DEFAULT_BASE_URL = "http://192.168.1.4:8000";
+const DEFAULT_BASE_URL = "http://192.168.8.158:8000";
 
 function getBaseUrl(): string {
 
