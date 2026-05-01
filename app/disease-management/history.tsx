@@ -29,8 +29,7 @@ type ScanRecord = {
   treatment?: string;
 };
 
-const DEFAULT_IMAGE =
-  "https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797?w=400";
+const DEFAULT_IMAGE = require("../../assets/images/default-leaf.png");
 
 export default function ScanHistoryScreen() {
   const router = useRouter();
@@ -131,7 +130,7 @@ export default function ScanHistoryScreen() {
           disease: item.disease,
           severity: getSeverityFromDisease(item.disease),
           confidence: confidenceValue,
-          imageUri: DEFAULT_IMAGE,
+          imageUri: item.image || null,
           treatment: getTreatmentFromDisease(item.disease),
         };
       });
@@ -343,9 +342,14 @@ export default function ScanHistoryScreen() {
                     >
                       <View style={styles.imageContainer}>
                         <Image
-                          source={{ uri: scan.imageUri }}
-                          style={styles.scanImage}
-                        />
+  source={
+    scan.imageUri
+      ? { uri: scan.imageUri }
+      : DEFAULT_IMAGE
+  }
+  style={styles.scanImage}
+  resizeMode="cover"
+/>
                         <View
                           style={[
                             styles.severityBadge,
