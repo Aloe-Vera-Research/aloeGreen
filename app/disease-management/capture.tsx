@@ -14,9 +14,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useLanguage } from "../../context/LanguageContext";
+import { API_ENDPOINTS } from "../../config/api";
 
 export default function CaptureLeafScreen() {
-  const API_URL = "http://192.168.8.158:8000/api/disease/detect";
+  const API_URL = API_ENDPOINTS.diseaseDetect;
   const router = useRouter();
   const { t } = useLanguage();
 

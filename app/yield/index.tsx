@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLanguage } from "../../context/LanguageContext";
+import { API_ENDPOINTS } from "../../config/api";
 
 const { width } = Dimensions.get("window");
 
@@ -63,7 +64,7 @@ export default function YieldDashboard() {
       const payload = buildPredictionPayload(farmConfig, ageMonths);
       console.log("Prediction payload:", payload);
 
-      const response = await fetch("http://192.168.8.158:8000/yield/predict", {
+      const response = await fetch(API_ENDPOINTS.yieldPredict, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

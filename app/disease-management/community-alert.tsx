@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import { useLanguage } from "../../context/LanguageContext";
+import { API_ENDPOINTS } from "../../config/api";
 
 export default function CommunityAlertScreen() {
   const router = useRouter();
@@ -103,7 +104,7 @@ export default function CommunityAlertScreen() {
       };
 
       const response = await fetch(
-        "http://192.168.8.158:8000/api/community-alert/send-email",
+        API_ENDPOINTS.communityAlert,
         {
           method: "POST",
           headers: {
