@@ -27,50 +27,50 @@ export default function CommunityAlertScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   const diseaseKey = (params.disease as string) || "Aloe Rust";
-const severityKey = (params.severity as string) || "high";
-const spreadRiskKey = (params.spreadRisk as string) || "high";
+  const severityKey = (params.severity as string) || "high";
+  const spreadRiskKey = (params.spreadRisk as string) || "high";
 
-const getDiseaseName = (key: string) => {
-  switch (key) {
-    case "Aloe Rust": return t("aloeRust");
-    case "Anthracnose": return t("anthracnose");
-    case "Healthy": return t("healthy");
-    case "Invalid": return t("invalid");
-    case "Leaf Spot": return t("leafSpot");
-    case "Sunburn": return t("sunburn");
-    default: return key;
-  }
-};
+  const getDiseaseName = (key: string) => {
+    switch (key) {
+      case "Aloe Rust": return t("aloeRust");
+      case "Anthracnose": return t("anthracnose");
+      case "Healthy": return t("healthy");
+      case "Invalid": return t("invalid");
+      case "Leaf Spot": return t("leafSpot");
+      case "Sunburn": return t("sunburn");
+      default: return key;
+    }
+  };
 
-const getSeverity = (key: string) => {
-  switch (key) {
-    case "high": return t("high");
-    case "critical": return t("critical");
-    case "medium": return t("medium");
-    case "low": return t("low");
-    case "healthy": return t("healthySeverity");
-    case "invalid": return t("unknownSeverity");
-    default: return t("unknownSeverity");
-  }
-};
+  const getSeverity = (key: string) => {
+    switch (key) {
+      case "high": return t("high");
+      case "critical": return t("critical");
+      case "medium": return t("medium");
+      case "low": return t("low");
+      case "healthy": return t("healthySeverity");
+      case "invalid": return t("unknownSeverity");
+      default: return t("unknownSeverity");
+    }
+  };
 
-const getRisk = (key: string) => {
-  switch (key) {
-    case "high": return t("high");
-    case "medium": return t("medium");
-    case "low": return t("low");
-    case "none": return t("none");
-    default: return t("unknownSeverity");
-  }
-};
+  const getRisk = (key: string) => {
+    switch (key) {
+      case "high": return t("high");
+      case "medium": return t("medium");
+      case "low": return t("low");
+      case "none": return t("none");
+      default: return t("unknownSeverity");
+    }
+  };
 
-const diseaseName = getDiseaseName(diseaseKey);
-const severity = getSeverity(severityKey);
-const spreadRisk = getRisk(spreadRiskKey);
+  const diseaseName = getDiseaseName(diseaseKey);
+  const severity = getSeverity(severityKey);
+  const spreadRisk = getRisk(spreadRiskKey);
 
-const [message, setMessage] = useState(
-  `${t("warningSymbol")} ${t("diseaseAlertUpper")}\n\n${t("disease")}: ${diseaseName}\n${t("severity")}: ${severity}\n${t("spreadRisk")}: ${spreadRisk}\n\n${t("communityAlertDefaultMessage")}`
-);
+  const [message, setMessage] = useState(
+    `${t("warningSymbol")} ${t("diseaseAlertUpper")}\n\n${t("disease")}: ${diseaseName}\n${t("severity")}: ${severity}\n${t("spreadRisk")}: ${spreadRisk}\n\n${t("communityAlertDefaultMessage")}`
+  );
 
   const [includeLocation, setIncludeLocation] = useState(true);
   const [urgentAlert, setUrgentAlert] = useState(
