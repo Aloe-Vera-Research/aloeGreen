@@ -342,14 +342,14 @@ export default function ScanHistoryScreen() {
                     >
                       <View style={styles.imageContainer}>
                         <Image
-  source={
-    scan.imageUri
-      ? { uri: scan.imageUri }
-      : DEFAULT_IMAGE
-  }
-  style={styles.scanImage}
-  resizeMode="cover"
-/>
+                          source={
+                            scan.imageUri
+                              ? { uri: scan.imageUri }
+                              : DEFAULT_IMAGE
+                          }
+                          style={styles.scanImage}
+                          resizeMode="cover"
+                        />
                         <View
                           style={[
                             styles.severityBadge,
