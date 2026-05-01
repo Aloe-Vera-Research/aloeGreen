@@ -5,6 +5,7 @@ export const API_ENDPOINTS = {
   diseaseHistory: `${BASE_URL}/api/disease/history`,
   communityAlert: `${BASE_URL}/api/community-alert/send-email`,
   fertilizerPredict: `${BASE_URL}/api/fertilizer/predict`,
+  fertilizerHistory: `${BASE_URL}/api/fertilizer/history`,
   yieldHistory: `${BASE_URL}/api/yield/history`,
   yieldPredict: `${BASE_URL}/yield/predict`,
 };
