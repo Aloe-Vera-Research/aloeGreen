@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useLanguage } from "../../context/LanguageContext";
+import { API_ENDPOINTS } from "../../config/api";
 
 const { width } = Dimensions.get("window");
 
@@ -150,7 +151,7 @@ export default function AnalyzingScreen() {
   }, []);
 
   const analyzeImage = async () => {
-    const API_URL = "http://192.168.8.158:8000/api/disease/detect";
+    const API_URL = API_ENDPOINTS.diseaseDetect;
 
     try {
       const formData = new FormData();

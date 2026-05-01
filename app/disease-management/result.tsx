@@ -22,10 +22,14 @@ export default function ResultScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
+  const diseaseKey = Array.isArray(disease) ? disease[0] : disease || "";
+
   const diseaseData = {
-    [t("aloeRust")]: {
+    "Aloe Rust": {
+      displayName: t("aloeRust"),
       category: t("diseaseCategory"),
       severity: t("high"),
+      severityKey: "high",
       description: t("aloeRustDescription"),
       causes: [
         t("aloeRustCause1"),
@@ -50,10 +54,14 @@ export default function ResultScreen() {
         t("aloeRustPrevention6"),
       ],
       spreadRisk: t("high"),
+      spreadRiskKey: "high",
     },
-    [t("anthracnose")]: {
+
+    Anthracnose: {
+      displayName: t("anthracnose"),
       category: t("diseaseCategory"),
       severity: t("high"),
+      severityKey: "high",
       description: t("anthracnoseDescription"),
       causes: [
         t("anthracnoseCause1"),
@@ -78,10 +86,14 @@ export default function ResultScreen() {
         t("anthracnosePrevention6"),
       ],
       spreadRisk: t("high"),
+      spreadRiskKey: "high",
     },
-    [t("healthy")]: {
+
+    Healthy: {
+      displayName: t("healthy"),
       category: t("healthyCategory"),
       severity: t("healthySeverity"),
+      severityKey: "healthySeverity",
       description: t("healthyDescription"),
       causes: [],
       treatment: [
@@ -100,10 +112,27 @@ export default function ResultScreen() {
         t("healthyPrevention6"),
       ],
       spreadRisk: t("none"),
+      spreadRiskKey: "none",
     },
-    [t("leafSpot")]: {
+
+    Invalid: {
+      displayName: t("invalid"),
+      category: t("unknownCategory"),
+      severity: t("unknownSeverity"),
+      severityKey: "unknownSeverity",
+      description: t("invalidDescription"),
+      causes: [],
+      treatment: [t("invalidTreatment1")],
+      prevention: [t("invalidPrevention1")],
+      spreadRisk: t("none"),
+      spreadRiskKey: "none",
+    },
+
+    "Leaf Spot": {
+      displayName: t("leafSpot"),
       category: t("diseaseCategory"),
       severity: t("medium"),
+      severityKey: "medium",
       description: t("leafSpotDescription"),
       causes: [
         t("leafSpotCause1"),
@@ -129,10 +158,14 @@ export default function ResultScreen() {
         t("leafSpotPrevention6"),
       ],
       spreadRisk: t("medium"),
+      spreadRiskKey: "medium",
     },
-    [t("sunburn")]: {
+
+    Sunburn: {
+      displayName: t("sunburn"),
       category: t("environmentalCategory"),
       severity: t("medium"),
+      severityKey: "medium",
       description: t("sunburnDescription"),
       causes: [
         t("sunburnCause1"),
@@ -158,6 +191,7 @@ export default function ResultScreen() {
         t("sunburnPrevention6"),
       ],
       spreadRisk: t("none"),
+      spreadRiskKey: "none",
     },
   } as const;
 
@@ -167,9 +201,9 @@ export default function ResultScreen() {
     prevention: false,
   });
 
-  const diseaseKey = disease as string;
   const diseaseInfo =
     diseaseData[diseaseKey as keyof typeof diseaseData] || {
+      displayName: diseaseKey || t("unknownCategory"),
       category: t("unknownCategory"),
       severity: t("unknownSeverity"),
       description: t("diseaseInfoUnavailable"),
@@ -282,7 +316,7 @@ export default function ResultScreen() {
           >
             <View style={styles.resultHeader}>
               <View style={styles.resultHeaderLeft}>
-                <Text style={styles.diseaseName}>{disease}</Text>
+                <Text style={styles.diseaseName}>{diseaseInfo.displayName}</Text>
                 <Text style={styles.category}>{diseaseInfo.category}</Text>
               </View>
               <View style={styles.confidenceBadge}>
@@ -475,9 +509,9 @@ export default function ResultScreen() {
                   router.push({
                     pathname: "/disease-management/community-alert",
                     params: {
-                      disease: disease,
-                      severity: diseaseInfo.severity,
-                      spreadRisk: diseaseInfo.spreadRisk,
+                      disease: diseaseKey, // backend label (Aloe Rust, etc.)
+                      severity: diseaseInfo.severityKey, // <-- NEW
+                      spreadRisk: diseaseInfo.spreadRiskKey, // <-- NEW
                     },
                   });
                 }}

@@ -13,8 +13,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLanguage } from "../../context/LanguageContext";
+import {BASE_URL } from "../../config/api";
 
-const API_BASE_URL = "http://192.168.8.158:8000";
+const API_BASE_URL = BASE_URL;
 const { width } = Dimensions.get("window");
 
 export default function ScenarioScreen() {

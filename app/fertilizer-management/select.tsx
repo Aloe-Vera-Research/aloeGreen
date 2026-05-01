@@ -14,13 +14,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import mqtt, { MqttClient } from "mqtt";
 import { useLanguage } from "../../context/LanguageContext";
+import { API_ENDPOINTS } from "../../config/api";
 
 const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
 const HIVEMQ_PORT = 8884;
 const MQTT_TOPIC = "aloeGreen/device01/data";
 const MQTT_USERNAME = "eesara";
 const MQTT_PASSWORD = "Eesara@123";
-const PREDICT_URL = "http://192.168.8.158:8000/api/fertilizer/predict";
+const PREDICT_URL = API_ENDPOINTS.fertilizerPredict;
 
 type SensorPayload = {
   device_id?: string;

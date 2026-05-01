@@ -14,10 +14,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLanguage } from "../../context/LanguageContext";
+import { BASE_URL } from "../../config/api";
 
 const { width } = Dimensions.get("window");
 
-const API_BASE_URL = "http://192.168.8.158:8000";
+const API_BASE_URL = BASE_URL;
 
 const soilTextureMap: Record<string, number> = {
   Loamy: 1,
