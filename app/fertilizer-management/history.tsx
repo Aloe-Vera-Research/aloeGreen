@@ -9,12 +9,12 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { API_ENDPOINTS } from "../../config/api";
+import { useLanguage } from "../../context/LanguageContext";
 
 const HISTORY_URL = API_ENDPOINTS.fertilizerHistory;
 
@@ -42,10 +42,13 @@ type FertilizerHistoryItem = {
   created_at: string;
 };
 
+type FilterKey = "all" | "today" | "thisMonth";
+
 export default function FertilizerHistory() {
   const router = useRouter();
+  const { t } = useLanguage();
 
-  const [selectedFilter, setSelectedFilter] = useState("All");
+  const [selectedFilter, setSelectedFilter] = useState<FilterKey>("all");
   const [history, setHistory] = useState<FertilizerHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,7 +57,11 @@ export default function FertilizerHistory() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  const filters = ["All", "Today", "This Month"];
+  const filters: { key: FilterKey; label: string }[] = [
+    { key: "all", label: t("all") },
+    { key: "today", label: t("today") },
+    { key: "thisMonth", label: t("thisMonth") },
+  ];
 
   useEffect(() => {
     loadHistory();
@@ -85,7 +92,7 @@ export default function FertilizerHistory() {
     const rawText = await response.text();
 
     if (!response.ok) {
-      throw new Error(rawText || "Failed to load fertilizer history.");
+      throw new Error(rawText || t("failedToLoadFertilizerHistory"));
     }
 
     let parsed: any = null;
@@ -93,11 +100,11 @@ export default function FertilizerHistory() {
     try {
       parsed = rawText ? JSON.parse(rawText) : null;
     } catch {
-      throw new Error("Backend returned invalid JSON.");
+      throw new Error(t("backendReturnedInvalidJson"));
     }
 
     if (!parsed?.success) {
-      throw new Error(parsed?.detail || "Failed to load fertilizer history.");
+      throw new Error(parsed?.detail || t("failedToLoadFertilizerHistory"));
     }
 
     return parsed.data || [];
@@ -111,7 +118,7 @@ export default function FertilizerHistory() {
       const data = await fetchHistory();
       setHistory(data);
     } catch (error: any) {
-      setErrorMessage(error?.message || "Something went wrong.");
+      setErrorMessage(error?.message || t("somethingWentWrong"));
     } finally {
       setLoading(false);
     }
@@ -125,19 +132,19 @@ export default function FertilizerHistory() {
       const data = await fetchHistory();
       setHistory(data);
     } catch (error: any) {
-      setErrorMessage(error?.message || "Something went wrong while refreshing.");
+      setErrorMessage(error?.message || t("somethingWentWrongRefreshing"));
     } finally {
       setRefreshing(false);
     }
   }, []);
 
   const filteredHistory = history.filter((item) => {
-    if (selectedFilter === "All") return true;
+    if (selectedFilter === "all") return true;
 
     const createdDate = new Date(item.created_at);
     const now = new Date();
 
-    if (selectedFilter === "Today") {
+    if (selectedFilter === "today") {
       return (
         createdDate.getFullYear() === now.getFullYear() &&
         createdDate.getMonth() === now.getMonth() &&
@@ -145,7 +152,7 @@ export default function FertilizerHistory() {
       );
     }
 
-    if (selectedFilter === "This Month") {
+    if (selectedFilter === "thisMonth") {
       return (
         createdDate.getFullYear() === now.getFullYear() &&
         createdDate.getMonth() === now.getMonth()
@@ -156,7 +163,7 @@ export default function FertilizerHistory() {
   });
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return "Unknown date";
+    if (!dateString) return t("unknownDate");
 
     const date = new Date(dateString);
 
@@ -185,6 +192,10 @@ export default function FertilizerHistory() {
     return "#F44336";
   };
 
+  const getSelectedFilterLabel = () => {
+    return filters.find((filter) => filter.key === selectedFilter)?.label || "";
+  };
+
   const openHistoryPlan = (item: FertilizerHistoryItem) => {
     const input = item.input_data || {};
     const result = item.prediction_result || {};
@@ -200,18 +211,20 @@ export default function FertilizerHistory() {
     router.push({
       pathname: "/fertilizer-management/plan",
       params: {
-        soil: input.Soil_Type || "N/A",
-        stage: input.Plant_Age_Category || "N/A",
+        soil: input.Soil_Type || t("notAvailable"),
+        stage: input.Plant_Age_Category || t("notAvailable"),
         moisture:
           input.Soil_Moisture !== undefined
             ? String(Math.round(input.Soil_Moisture))
-            : "N/A",
+            : t("notAvailable"),
         soilPH:
-          input.Soil_pH !== undefined ? String(Number(input.Soil_pH).toFixed(1)) : "N/A",
-        N: input.N !== undefined ? String(input.N) : "N/A",
-        P: input.P !== undefined ? String(input.P) : "N/A",
-        K: input.K !== undefined ? String(input.K) : "N/A",
-        applicationTiming: input.Application_Timing || "N/A",
+          input.Soil_pH !== undefined
+            ? String(Number(input.Soil_pH).toFixed(1))
+            : t("notAvailable"),
+        N: input.N !== undefined ? String(input.N) : t("notAvailable"),
+        P: input.P !== undefined ? String(input.P) : t("notAvailable"),
+        K: input.K !== undefined ? String(input.K) : t("notAvailable"),
+        applicationTiming: input.Application_Timing || t("notAvailable"),
         additionalAdvice: input.Additional_Advice || "",
         prediction: JSON.stringify(predictionPayload),
         fromHistory: "true",
@@ -262,17 +275,19 @@ export default function FertilizerHistory() {
             <View style={styles.fertilizerBadge}>
               <Ionicons name="leaf-outline" size={14} color="#2E7D32" />
               <Text style={styles.fertilizerBadgeText} numberOfLines={1}>
-                {result.recommended_fertilizer || "Fertilizer"}
+                {result.recommended_fertilizer || t("fertilizerLabel")}
               </Text>
             </View>
           </View>
 
           <View style={styles.recommendationBox}>
-            <Text style={styles.recommendationLabel}>Recommended Dosage</Text>
+            <Text style={styles.recommendationLabel}>
+              {t("recommendedDosage")}
+            </Text>
             <Text style={styles.recommendationValue}>
               {result.recommended_dosage_g_per_plant !== undefined
-                ? `${result.recommended_dosage_g_per_plant} g / plant`
-                : "Not available"}
+                ? `${result.recommended_dosage_g_per_plant} g / ${t("perPlant")}`
+                : t("notAvailable")}
             </Text>
           </View>
 
@@ -283,9 +298,9 @@ export default function FertilizerHistory() {
                   <Ionicons name="layers-outline" size={20} color="#2E7D32" />
                 </View>
                 <View style={styles.infoTextWrap}>
-                  <Text style={styles.infoLabel}>Soil Type</Text>
+                  <Text style={styles.infoLabel}>{t("soilType")}</Text>
                   <Text style={styles.infoValue} numberOfLines={1}>
-                    {input.Soil_Type || "N/A"}
+                    {input.Soil_Type || t("notAvailable")}
                   </Text>
                 </View>
               </View>
@@ -295,9 +310,9 @@ export default function FertilizerHistory() {
                   <Ionicons name="analytics-outline" size={20} color="#2E7D32" />
                 </View>
                 <View style={styles.infoTextWrap}>
-                  <Text style={styles.infoLabel}>Plant Stage</Text>
+                  <Text style={styles.infoLabel}>{t("plantStage")}</Text>
                   <Text style={styles.infoValue} numberOfLines={1}>
-                    {input.Plant_Age_Category || "N/A"}
+                    {input.Plant_Age_Category || t("notAvailable")}
                   </Text>
                 </View>
               </View>
@@ -309,27 +324,30 @@ export default function FertilizerHistory() {
                 <Text style={styles.sensorText}>
                   {input.Soil_Moisture !== undefined
                     ? `${Math.round(input.Soil_Moisture)}%`
-                    : "N/A"}
+                    : t("notAvailable")}
                 </Text>
               </View>
 
               <View style={styles.sensorItem}>
                 <Ionicons name="beaker-outline" size={16} color="#4E6E4E" />
                 <Text style={styles.sensorText}>
-                  pH {input.Soil_pH !== undefined ? Number(input.Soil_pH).toFixed(1) : "N/A"}
+                  {t("ph")}{" "}
+                  {input.Soil_pH !== undefined
+                    ? Number(input.Soil_pH).toFixed(1)
+                    : t("notAvailable")}
                 </Text>
               </View>
 
               <View style={styles.sensorItem}>
                 <Ionicons name="time-outline" size={16} color="#4E6E4E" />
                 <Text style={styles.sensorText} numberOfLines={1}>
-                  {input.Application_Timing || "N/A"}
+                  {input.Application_Timing || t("notAvailable")}
                 </Text>
               </View>
             </View>
 
             <View style={styles.npkRow}>
-              <Text style={styles.npkLabel}>NPK Values:</Text>
+              <Text style={styles.npkLabel}>{t("npkValues")}</Text>
 
               <View style={styles.npkBadges}>
                 <View
@@ -338,7 +356,9 @@ export default function FertilizerHistory() {
                     { backgroundColor: getNPKColor(input.N) },
                   ]}
                 >
-                  <Text style={styles.npkBadgeText}>N: {input.N ?? "N/A"}</Text>
+                  <Text style={styles.npkBadgeText}>
+                    N: {input.N ?? t("notAvailable")}
+                  </Text>
                 </View>
 
                 <View
@@ -347,7 +367,9 @@ export default function FertilizerHistory() {
                     { backgroundColor: getNPKColor(input.P) },
                   ]}
                 >
-                  <Text style={styles.npkBadgeText}>P: {input.P ?? "N/A"}</Text>
+                  <Text style={styles.npkBadgeText}>
+                    P: {input.P ?? t("notAvailable")}
+                  </Text>
                 </View>
 
                 <View
@@ -356,14 +378,18 @@ export default function FertilizerHistory() {
                     { backgroundColor: getNPKColor(input.K) },
                   ]}
                 >
-                  <Text style={styles.npkBadgeText}>K: {input.K ?? "N/A"}</Text>
+                  <Text style={styles.npkBadgeText}>
+                    K: {input.K ?? t("notAvailable")}
+                  </Text>
                 </View>
               </View>
             </View>
           </View>
 
           <View style={styles.cardFooter}>
-            <Text style={styles.viewDetailsText}>View Prediction Details</Text>
+            <Text style={styles.viewDetailsText}>
+              {t("viewPredictionDetails")}
+            </Text>
             <Ionicons name="chevron-forward" size={20} color="#2E7D32" />
           </View>
         </TouchableOpacity>
@@ -386,10 +412,12 @@ export default function FertilizerHistory() {
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Prediction History</Text>
+          <Text style={styles.headerTitle}>{t("predictionHistory")}</Text>
           <Text style={styles.headerSubtitle}>
-            {filteredHistory.length} record
-            {filteredHistory.length !== 1 ? "s" : ""} found
+            {filteredHistory.length}{" "}
+            {filteredHistory.length === 1
+              ? t("recordFound")
+              : t("recordsFound")}
           </Text>
         </View>
 
@@ -415,21 +443,21 @@ export default function FertilizerHistory() {
         >
           {filters.map((filter) => (
             <TouchableOpacity
-              key={filter}
+              key={filter.key}
               activeOpacity={0.7}
-              onPress={() => setSelectedFilter(filter)}
+              onPress={() => setSelectedFilter(filter.key)}
               style={[
                 styles.filterPill,
-                selectedFilter === filter && styles.filterPillActive,
+                selectedFilter === filter.key && styles.filterPillActive,
               ]}
             >
               <Text
                 style={[
                   styles.filterText,
-                  selectedFilter === filter && styles.filterTextActive,
+                  selectedFilter === filter.key && styles.filterTextActive,
                 ]}
               >
-                {filter}
+                {filter.label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -439,7 +467,9 @@ export default function FertilizerHistory() {
       {loading ? (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color="#2E7D32" />
-          <Text style={styles.loadingText}>Loading fertilizer history...</Text>
+          <Text style={styles.loadingText}>
+            {t("loadingFertilizerHistory")}
+          </Text>
         </View>
       ) : errorMessage ? (
         <View style={styles.emptyState}>
@@ -447,11 +477,11 @@ export default function FertilizerHistory() {
             <Ionicons name="warning-outline" size={64} color="#F44336" />
           </View>
 
-          <Text style={styles.emptyTitle}>Unable to Load History</Text>
+          <Text style={styles.emptyTitle}>{t("unableToLoadHistory")}</Text>
           <Text style={styles.emptyDescription}>{errorMessage}</Text>
 
           <TouchableOpacity style={styles.retryButton} onPress={loadHistory}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            <Text style={styles.retryButtonText}>{t("tryAgain")}</Text>
           </TouchableOpacity>
         </View>
       ) : filteredHistory.length > 0 ? (
@@ -476,9 +506,11 @@ export default function FertilizerHistory() {
             <Ionicons name="document-text-outline" size={64} color="#9E9E9E" />
           </View>
 
-          <Text style={styles.emptyTitle}>No History Found</Text>
+          <Text style={styles.emptyTitle}>{t("noHistoryFound")}</Text>
           <Text style={styles.emptyDescription}>
-            No fertilizer predictions are available for {selectedFilter.toLowerCase()}.
+            {t("noFertilizerPredictionsAvailable", {
+              filter: getSelectedFilterLabel().toLowerCase(),
+            } as any)}
           </Text>
         </View>
       )}

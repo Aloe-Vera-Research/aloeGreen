@@ -936,6 +936,130 @@ const si = {
   askAboutAloeVeraFarming: "කෝමාරිකා වගාව ගැන අහන්න…",
   chatSomethingWentWrong: "යම් දෝෂයක් සිදුවිය. කරුණාකර නැවත උත්සාහ කරන්න.",
   noResponse: "පිළිතුරක් නොමැත",
+
+
+    // ====================
+  // Fertilizer Analyzer History Screen
+  // ====================
+
+  historyBasedFertilizerInsights: "ඉතිහාස දත්ත මත පදනම් වූ පොහොර අවබෝධ",
+  loadingFertilizerAnalytics: "පොහොර විශ්ලේෂණ පූරණය වෙමින්...",
+  unableToLoadAnalytics: "විශ්ලේෂණ පූරණය කළ නොහැක",
+  tryAgain: "නැවත උත්සාහ කරන්න",
+
+  failedToLoadFertilizerHistory: "පොහොර ඉතිහාසය පූරණය කිරීමට අසමත් විය.",
+  backendReturnedInvalidJson: "Backend මඟින් වලංගු නොවන JSON ආපසු ලැබුණි.",
+  somethingWentWrong: "යම් දෝෂයක් සිදුවිය.",
+  somethingWentWrongRefreshing: "යාවත්කාලීන කිරීමේදී දෝෂයක් සිදුවිය.",
+
+  predictions: "අනාවැකි",
+  latest: "නවතම",
+  perPlant: "පැළයකට",
+  notAvailable: "නොමැත",
+
+  dosageTrendFromHistory: "සුරකින ලද අනාවැකි ඉතිහාසයෙන් මාත්‍රා ප්‍රවණතාව",
+  mongoDb: "MongoDB",
+  recommendedDosageGramsPerPlant: "නිර්දේශිත මාත්‍රාව පැළයකට ග්‍රෑම් වලින්",
+  currentNutrientValuesUsedForAnalysis:
+    "විශ්ලේෂණය සඳහා භාවිත කළ වත්මන් පෝෂක අගයන්",
+
+  medium: "මධ්‍යම",
+
+  nitrogenInsightTitle: "නයිට්‍රජන්",
+  phosphorusInsightTitle: "පොස්පරස්",
+  potassiumInsightTitle: "පොටෑසියම්",
+  fertilizerInsightTitle: "පොහොර",
+
+  analyzerNitrogenLowDetailed:
+    "නයිට්‍රජන් මට්ටම අඩුයි. හොඳ පත්‍ර වර්ධනය සඳහා නයිට්‍රජන් සහායක පොහොර සලකා බලන්න.",
+  analyzerNitrogenAcceptableDetailed:
+    "වත්මන් කෝමාරිකා වර්ධන තත්ත්වයට නයිට්‍රජන් මට්ටම පිළිගත හැකිය.",
+
+  analyzerPhosphorusLowDetailed:
+    "පොස්පරස් මට්ටම අඩුයි. මුල් වර්ධනය සඳහා අමතර සහාය අවශ්‍ය විය හැක.",
+  analyzerPhosphorusSuitableDetailed:
+    "මුල් සහ ශාක වර්ධනයට සහාය වීමට පොස්පරස් මට්ටම සුදුසුයි.",
+
+  analyzerPotassiumLowDetailed:
+    "පොටෑසියම් මට්ටම අඩුයි. එය නිවැරදි නොකළහොත් කෝමාරිකා ආතති ප්‍රතිරෝධය අඩු විය හැක.",
+  analyzerPotassiumHealthyDetailed:
+    "තෙතමන පාලනය සහ ශාක ශක්තිය සඳහා පොටෑසියම් මට්ටම හොඳයි.",
+
+  latestRecommendationDetailed:
+    "නවතම නිර්දේශය {{fertilizer}} වන අතර {{soil}} පස සහ {{stage}} අදියර සඳහා පැළයකට {{dosage}} g යෙදිය යුතුය.",
+  analysisBasedOnSoilStage:
+    "මෙම විශ්ලේෂණය {{soil}} පස සහ {{stage}} ශාක අදියර මත පදනම් වේ.",
+
+
+      // ====================
+  // Fertilizer History Screen
+  // ====================
+
+  predictionHistory: "අනාවැකි ඉතිහාසය",
+  recordFound: "වාර්තාවක් හමු විය",
+  recordsFound: "වාර්තා හමු විය",
+  thisMonth: "මෙම මාසය",
+
+  loadingFertilizerHistory: "පොහොර ඉතිහාසය පූරණය වෙමින්...",
+  unableToLoadHistory: "ඉතිහාසය පූරණය කළ නොහැක",
+  noHistoryFound: "ඉතිහාස වාර්තා නොමැත",
+  noFertilizerPredictionsAvailable:
+    "{{filter}} සඳහා පොහොර අනාවැකි වාර්තා නොමැත.",
+
+  unknownDate: "නොදන්නා දිනය",
+  fertilizerLabel: "පොහොර",
+  recommendedDosage: "නිර්දේශිත මාත්‍රාව",
+  notAvailable: "නොමැත",
+  perPlant: "පැළයකට",
+
+  npkValues: "NPK අගයන්:",
+  viewPredictionDetails: "අනාවැකි විස්තර බලන්න",
+
+  failedToLoadFertilizerHistory: "පොහොර ඉතිහාසය පූරණය කිරීමට අසමත් විය.",
+  backendReturnedInvalidJson: "Backend මඟින් වලංගු නොවන JSON ආපසු ලැබුණි.",
+  somethingWentWrong: "යම් දෝෂයක් සිදුවිය.",
+  somethingWentWrongRefreshing: "යාවත්කාලීන කිරීමේදී දෝෂයක් සිදුවිය.",
+  tryAgain: "නැවත උත්සාහ කරන්න",
+
+    // ====================
+  // Disease History Screen
+  // ====================
+
+  scanHistoryTitle: "ස්කෑන් ඉතිහාසය",
+  scanSingular: "ස්කෑන් වාර්තාව",
+  scanPlural: "ස්කෑන් වාර්තා",
+  totalScans: "මුළු ස්කෑන්",
+  diseased: "රෝග සහිත",
+
+  filterAll: "සියල්ල",
+  filterHealthy: "සෞඛ්‍ය සම්පන්න",
+  filterDiseased: "රෝග සහිත",
+
+  loadingScanHistory: "ස්කෑන් ඉතිහාසය පූරණය වෙමින්...",
+  noScansFound: "ස්කෑන් වාර්තා හමු නොවීය",
+  startScanningLeavesHistory:
+    "ඔබගේ ඉතිහාසය බැලීමට කෝමාරිකා පත්‍ර ස්කෑන් කිරීම ආරම්භ කරන්න",
+  scanNow: "දැන් ස්කෑන් කරන්න",
+
+  yesterday: "ඊයේ",
+
+  diseaseTreatmentAloeRust:
+    "ෆන්ගිසයිඩ් යොදා බලපෑමට ලක්වූ පත්‍ර ඉවත් කරන්න",
+  diseaseTreatmentAnthracnose:
+    "ආසාදිත කොටස් ඉවත් කර කොපර් ෆන්ගිසයිඩ් යොදන්න",
+  diseaseTreatmentLeafSpot:
+    "වායු සංසරණය වැඩිදියුණු කර ඉහළින් ජලය දැමීමෙන් වළකින්න",
+  diseaseTreatmentSunburn:
+    "පැළය පෙරහන් කළ සූර්යාලෝකයට ගෙන යන්න හෝ සෙවණ ලබා දෙන්න",
+  diseaseTreatmentInvalid:
+    "කරුණාකර පැහැදිලි කෝමාරිකා පත්‍ර රූපයක් ස්කෑන් කරන්න",
+  diseaseTreatmentDefault:
+    "පැළය නිරීක්ෂණය කර කෘෂිකාර්මික විශේෂඥයෙකුගෙන් උපදෙස් ලබාගන්න",
+
+  severityLow: "අඩු",
+  severityMedium: "මධ්‍යම",
+  severityHigh: "ඉහළ",
+  severityCritical: "අතිශය අවදානම්",
 };
 
 export default si;

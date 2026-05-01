@@ -940,6 +940,133 @@ const en = {
   askAboutAloeVeraFarming: "Ask about Aloe Vera farming…",
   chatSomethingWentWrong: "Something went wrong. Please try again.",
   noResponse: "No response",
+
+
+
+
+    // ====================
+  // Fertilizer Analyzer History Screen
+  // ====================
+
+  historyBasedFertilizerInsights: "History-based fertilizer insights",
+  loadingFertilizerAnalytics: "Loading fertilizer analytics...",
+  unableToLoadAnalytics: "Unable to Load Analytics",
+  tryAgain: "Try Again",
+
+  failedToLoadFertilizerHistory: "Failed to load fertilizer history.",
+  backendReturnedInvalidJson: "Backend returned invalid JSON.",
+  somethingWentWrong: "Something went wrong.",
+  somethingWentWrongRefreshing: "Something went wrong while refreshing.",
+
+  predictions: "Predictions",
+  latest: "Latest",
+  perPlant: "per plant",
+  notAvailable: "N/A",
+
+  dosageTrendFromHistory: "Dosage trend from saved prediction history",
+  mongoDb: "MongoDB",
+  recommendedDosageGramsPerPlant: "Recommended dosage grams per plant",
+  currentNutrientValuesUsedForAnalysis:
+    "Current nutrient values used for analysis",
+
+  medium: "Medium",
+
+  nitrogenInsightTitle: "Nitrogen",
+  phosphorusInsightTitle: "Phosphorus",
+  potassiumInsightTitle: "Potassium",
+  fertilizerInsightTitle: "Fertilizer",
+
+  analyzerNitrogenLowDetailed:
+    "Nitrogen level is low. Consider nitrogen-supporting fertilizer for better leaf growth.",
+  analyzerNitrogenAcceptableDetailed:
+    "Nitrogen level is acceptable for the current Aloe Vera growth condition.",
+
+  analyzerPhosphorusLowDetailed:
+    "Phosphorus level is low. Root development may need extra support.",
+  analyzerPhosphorusSuitableDetailed:
+    "Phosphorus level is suitable for supporting root and plant development.",
+
+  analyzerPotassiumLowDetailed:
+    "Potassium level is low. Aloe Vera stress resistance may reduce if not corrected.",
+  analyzerPotassiumHealthyDetailed:
+    "Potassium level is healthy for moisture regulation and plant strength.",
+
+  latestRecommendationDetailed:
+    "Latest recommendation is {{fertilizer}} at {{dosage}} g per plant for {{soil}} soil and {{stage}} stage.",
+  analysisBasedOnSoilStage:
+    "Analysis is based on {{soil}} soil and {{stage}} plant stage.",
+
+
+      // ====================
+  // Fertilizer History Screen
+  // ====================
+
+  predictionHistory: "Prediction History",
+  recordFound: "record found",
+  recordsFound: "records found",
+  thisMonth: "This Month",
+
+  loadingFertilizerHistory: "Loading fertilizer history...",
+  unableToLoadHistory: "Unable to Load History",
+  noHistoryFound: "No History Found",
+  noFertilizerPredictionsAvailable:
+    "No fertilizer predictions are available for {{filter}}.",
+
+  unknownDate: "Unknown date",
+  fertilizerLabel: "Fertilizer",
+  recommendedDosage: "Recommended Dosage",
+  notAvailable: "Not available",
+  perPlant: "plant",
+
+  npkValues: "NPK Values:",
+  viewPredictionDetails: "View Prediction Details",
+
+  failedToLoadFertilizerHistory: "Failed to load fertilizer history.",
+  backendReturnedInvalidJson: "Backend returned invalid JSON.",
+  somethingWentWrong: "Something went wrong.",
+  somethingWentWrongRefreshing: "Something went wrong while refreshing.",
+  tryAgain: "Try Again",
+
+
+    // ====================
+  // Disease History Screen
+  // ====================
+
+  scanHistoryTitle: "Scan History",
+  scanSingular: "scan",
+  scanPlural: "scans",
+  totalScans: "Total Scans",
+  diseased: "Diseased",
+
+  filterAll: "All",
+  filterHealthy: "Healthy",
+  filterDiseased: "Diseased",
+
+  loadingScanHistory: "Loading scan history...",
+  noScansFound: "No scans found",
+  startScanningLeavesHistory:
+    "Start scanning aloe leaves to see your history",
+  scanNow: "Scan Now",
+
+  yesterday: "Yesterday",
+
+  diseaseTreatmentAloeRust:
+    "Apply fungicide and remove affected leaves",
+  diseaseTreatmentAnthracnose:
+    "Remove infected parts and apply copper fungicide",
+  diseaseTreatmentLeafSpot:
+    "Improve air circulation and avoid overhead watering",
+  diseaseTreatmentSunburn:
+    "Move plant to filtered sunlight or provide shade",
+  diseaseTreatmentInvalid:
+    "Please scan a clear Aloe Vera leaf image",
+  diseaseTreatmentDefault:
+    "Monitor the plant and consult an agricultural expert",
+
+  severityLow: "Low",
+  severityMedium: "Medium",
+  severityHigh: "High",
+  severityCritical: "Critical",
 };
 
 export default en;

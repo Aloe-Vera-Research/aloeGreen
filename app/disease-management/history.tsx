@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { API_ENDPOINTS } from "../../config/api";
+import { useLanguage } from "../../context/LanguageContext";
 
 type Severity = "Healthy" | "Low" | "Medium" | "High" | "Critical";
 
@@ -25,7 +26,7 @@ type ScanRecord = {
   disease: string;
   severity: Severity;
   confidence: number;
-  imageUri: string;
+  imageUri: string | null;
   treatment?: string;
 };
 
@@ -33,6 +34,7 @@ const DEFAULT_IMAGE = require("../../assets/images/default-leaf.png");
 
 export default function ScanHistoryScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const [activeFilter, setActiveFilter] = useState<string>("all");
@@ -41,9 +43,9 @@ export default function ScanHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const filters = [
-    { id: "all", label: "All", icon: "apps" as const },
-    { id: "healthy", label: "Healthy", icon: "checkmark-circle" as const },
-    { id: "diseased", label: "Diseased", icon: "alert-circle" as const },
+    { id: "all", label: t("filterAll"), icon: "apps" as const },
+    { id: "healthy", label: t("filterHealthy"), icon: "checkmark-circle" as const },
+    { id: "diseased", label: t("filterDiseased"), icon: "alert-circle" as const },
   ];
 
   useEffect(() => {
@@ -73,37 +75,73 @@ export default function ScanHistoryScreen() {
     }
   };
 
+  const getTranslatedDisease = (disease: string) => {
+    switch (disease) {
+      case "Aloe Rust":
+        return t("aloeRust");
+      case "Anthracnose":
+        return t("anthracnose");
+      case "Healthy":
+        return t("healthy");
+      case "Leaf Spot":
+        return t("leafSpot");
+      case "Sunburn":
+        return t("sunburn");
+      case "Invalid":
+        return t("invalid");
+      default:
+        return disease || t("unknown");
+    }
+  };
+
+  const getSeverityLabel = (severity: Severity) => {
+    switch (severity) {
+      case "Healthy":
+        return t("healthy");
+      case "Low":
+        return t("severityLow");
+      case "Medium":
+        return t("severityMedium");
+      case "High":
+        return t("severityHigh");
+      case "Critical":
+        return t("severityCritical");
+      default:
+        return severity;
+    }
+  };
+
   const getTreatmentFromDisease = (disease: string) => {
     switch (disease) {
       case "Aloe Rust":
-        return "Apply fungicide and remove affected leaves";
+        return t("diseaseTreatmentAloeRust");
       case "Anthracnose":
-        return "Remove infected parts and apply copper fungicide";
+        return t("diseaseTreatmentAnthracnose");
       case "Leaf Spot":
-        return "Improve air circulation and avoid overhead watering";
+        return t("diseaseTreatmentLeafSpot");
       case "Sunburn":
-        return "Move plant to filtered sunlight or provide shade";
+        return t("diseaseTreatmentSunburn");
       case "Healthy":
         return undefined;
       case "Invalid":
-        return "Please scan a clear Aloe vera leaf image";
+        return t("diseaseTreatmentInvalid");
       default:
-        return "Monitor the plant and consult an agricultural expert";
+        return t("diseaseTreatmentDefault");
     }
   };
 
   const formatDateLabel = (dateObj: Date) => {
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
+    const todayDate = new Date();
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(todayDate.getDate() - 1);
 
     const sameDay = (a: Date, b: Date) =>
       a.getFullYear() === b.getFullYear() &&
       a.getMonth() === b.getMonth() &&
       a.getDate() === b.getDate();
 
-    if (sameDay(dateObj, today)) return "Today";
-    if (sameDay(dateObj, yesterday)) return "Yesterday";
+    if (sameDay(dateObj, todayDate)) return t("today");
+    if (sameDay(dateObj, yesterdayDate)) return t("yesterday");
 
     return dateObj.toLocaleDateString();
   };
@@ -207,6 +245,7 @@ export default function ScanHistoryScreen() {
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#E8F5E9" />
+
       <LinearGradient
         colors={["#E8F5E9", "#C8E6C9", "#A5D6A7"]}
         style={styles.container}
@@ -222,10 +261,10 @@ export default function ScanHistoryScreen() {
             </TouchableOpacity>
 
             <View style={styles.headerText}>
-              <Text style={styles.title}>Scan History</Text>
+              <Text style={styles.title}>{t("scanHistoryTitle")}</Text>
               <Text style={styles.subtitle}>
                 {filteredScans.length}{" "}
-                {filteredScans.length === 1 ? "scan" : "scans"}
+                {filteredScans.length === 1 ? t("scanSingular") : t("scanPlural")}
               </Text>
             </View>
 
@@ -239,7 +278,7 @@ export default function ScanHistoryScreen() {
               <Ionicons name="scan-circle" size={28} color="#2E7D32" />
               <View style={styles.statContent}>
                 <Text style={styles.statNumber}>{stats.total}</Text>
-                <Text style={styles.statLabel}>Total Scans</Text>
+                <Text style={styles.statLabel}>{t("totalScans")}</Text>
               </View>
             </View>
 
@@ -247,7 +286,7 @@ export default function ScanHistoryScreen() {
               <Ionicons name="checkmark-circle" size={28} color="#2E7D32" />
               <View style={styles.statContent}>
                 <Text style={styles.statNumber}>{stats.healthy}</Text>
-                <Text style={styles.statLabel}>Healthy</Text>
+                <Text style={styles.statLabel}>{t("healthy")}</Text>
               </View>
             </View>
 
@@ -255,7 +294,7 @@ export default function ScanHistoryScreen() {
               <Ionicons name="alert-circle" size={28} color="#E64A19" />
               <View style={styles.statContent}>
                 <Text style={styles.statNumber}>{stats.diseased}</Text>
-                <Text style={styles.statLabel}>Diseased</Text>
+                <Text style={styles.statLabel}>{t("diseased")}</Text>
               </View>
             </View>
           </View>
@@ -291,7 +330,7 @@ export default function ScanHistoryScreen() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#2E7D32" />
-              <Text style={styles.loadingText}>Loading scan history...</Text>
+              <Text style={styles.loadingText}>{t("loadingScanHistory")}</Text>
             </View>
           ) : (
             <ScrollView
@@ -299,22 +338,28 @@ export default function ScanHistoryScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#2E7D32"
+                  colors={["#2E7D32"]}
+                />
               }
             >
               {filteredScans.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="leaf-outline" size={64} color="#A5D6A7" />
-                  <Text style={styles.emptyTitle}>No scans found</Text>
+                  <Text style={styles.emptyTitle}>{t("noScansFound")}</Text>
                   <Text style={styles.emptySubtitle}>
-                    Start scanning aloe leaves to see your history
+                    {t("startScanningLeavesHistory")}
                   </Text>
+
                   <TouchableOpacity
                     style={styles.emptyCTA}
                     onPress={() => router.push("/disease-management/capture")}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.emptyCTAText}>Scan Now</Text>
+                    <Text style={styles.emptyCTAText}>{t("scanNow")}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -350,13 +395,12 @@ export default function ScanHistoryScreen() {
                           style={styles.scanImage}
                           resizeMode="cover"
                         />
+
                         <View
                           style={[
                             styles.severityBadge,
                             {
-                              backgroundColor: getSeverityBgColor(
-                                scan.severity
-                              ),
+                              backgroundColor: getSeverityBgColor(scan.severity),
                             },
                           ]}
                         >
@@ -366,7 +410,7 @@ export default function ScanHistoryScreen() {
                               { color: getSeverityColor(scan.severity) },
                             ]}
                           >
-                            {scan.severity}
+                            {getSeverityLabel(scan.severity)}
                           </Text>
                         </View>
                       </View>
@@ -374,8 +418,9 @@ export default function ScanHistoryScreen() {
                       <View style={styles.scanInfo}>
                         <View style={styles.scanHeader}>
                           <Text style={styles.diseaseText}>
-                            {scan.disease}
+                            {getTranslatedDisease(scan.disease)}
                           </Text>
+
                           <View style={styles.confidenceBadge}>
                             <Ionicons
                               name="speedometer-outline"
@@ -395,6 +440,7 @@ export default function ScanHistoryScreen() {
                             color="#666"
                           />
                           <Text style={styles.dateText}>{scan.date}</Text>
+
                           <Ionicons
                             name="time-outline"
                             size={14}
@@ -449,7 +495,6 @@ export default function ScanHistoryScreen() {
     </>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
