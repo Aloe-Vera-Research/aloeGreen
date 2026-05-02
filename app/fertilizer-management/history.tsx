@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,70 +6,66 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
-  Dimensions,
   FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { API_ENDPOINTS } from "../../config/api";
+import { useLanguage } from "../../context/LanguageContext";
 
-const { width } = Dimensions.get("window");
+const HISTORY_URL = API_ENDPOINTS.fertilizerHistory;
 
-// Mock data for past fertilizer plans
-const mockPlans = [
-  {
-    id: "1",
-    date: "2025-01-02",
-    soilType: "Loam",
-    plantStage: "Mature",
-    status: "Active",
-    npk: { n: "Medium", p: "Low", k: "High" },
-    temperature: "29°C",
-    moisture: "42%",
-    ph: "6.5",
-  },
-  {
-    id: "2",
-    date: "2024-12-28",
-    soilType: "Sandy",
-    plantStage: "Baby",
-    status: "Completed",
-    npk: { n: "Low", p: "Medium", k: "Medium" },
-    temperature: "27°C",
-    moisture: "38%",
-    ph: "6.2",
-  },
-  {
-    id: "3",
-    date: "2024-12-15",
-    soilType: "Clay",
-    plantStage: "Damage Recovery",
-    status: "Completed",
-    npk: { n: "High", p: "Low", k: "Medium" },
-    temperature: "28°C",
-    moisture: "45%",
-    ph: "6.8",
-  },
-  {
-    id: "4",
-    date: "2024-12-01",
-    soilType: "Loam",
-    plantStage: "Baby",
-    status: "Completed",
-    npk: { n: "Medium", p: "Medium", k: "Low" },
-    temperature: "26°C",
-    moisture: "40%",
-    ph: "6.4",
-  },
-];
+type FertilizerInputData = {
+  Soil_pH?: number;
+  N?: number;
+  P?: number;
+  K?: number;
+  Soil_Moisture?: number;
+  Soil_Type?: string;
+  Plant_Age_Category?: string;
+  Application_Timing?: string;
+  Additional_Advice?: string;
+};
+
+type FertilizerPredictionResult = {
+  recommended_fertilizer?: string;
+  recommended_dosage_g_per_plant?: number;
+};
+
+type FertilizerHistoryItem = {
+  id: string;
+  input_data: FertilizerInputData;
+  prediction_result: FertilizerPredictionResult;
+  created_at: string;
+};
+
+type FilterKey = "all" | "today" | "thisMonth";
 
 export default function FertilizerHistory() {
   const router = useRouter();
-  const [selectedFilter, setSelectedFilter] = useState("All");
+  const { t } = useLanguage();
+
+  const [selectedFilter, setSelectedFilter] = useState<FilterKey>("all");
+  const [history, setHistory] = useState<FertilizerHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
+  const filters: { key: FilterKey; label: string }[] = [
+    { key: "all", label: t("all") },
+    { key: "today", label: t("today") },
+    { key: "thisMonth", label: t("thisMonth") },
+  ];
+
   useEffect(() => {
+    loadHistory();
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -85,15 +81,92 @@ export default function FertilizerHistory() {
     ]).start();
   }, []);
 
-  const filters = ["All", "Active", "Completed"];
+  const fetchHistory = async () => {
+    const response = await fetch(HISTORY_URL, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
-  const filteredPlans =
-    selectedFilter === "All"
-      ? mockPlans
-      : mockPlans.filter((plan) => plan.status === selectedFilter);
+    const rawText = await response.text();
 
-  const formatDate = (dateString: string) => {
+    if (!response.ok) {
+      throw new Error(rawText || t("failedToLoadFertilizerHistory"));
+    }
+
+    let parsed: any = null;
+
+    try {
+      parsed = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      throw new Error(t("backendReturnedInvalidJson"));
+    }
+
+    if (!parsed?.success) {
+      throw new Error(parsed?.detail || t("failedToLoadFertilizerHistory"));
+    }
+
+    return parsed.data || [];
+  };
+
+  const loadHistory = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+
+      const data = await fetchHistory();
+      setHistory(data);
+    } catch (error: any) {
+      setErrorMessage(error?.message || t("somethingWentWrong"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      setErrorMessage("");
+
+      const data = await fetchHistory();
+      setHistory(data);
+    } catch (error: any) {
+      setErrorMessage(error?.message || t("somethingWentWrongRefreshing"));
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  const filteredHistory = history.filter((item) => {
+    if (selectedFilter === "all") return true;
+
+    const createdDate = new Date(item.created_at);
+    const now = new Date();
+
+    if (selectedFilter === "today") {
+      return (
+        createdDate.getFullYear() === now.getFullYear() &&
+        createdDate.getMonth() === now.getMonth() &&
+        createdDate.getDate() === now.getDate()
+      );
+    }
+
+    if (selectedFilter === "thisMonth") {
+      return (
+        createdDate.getFullYear() === now.getFullYear() &&
+        createdDate.getMonth() === now.getMonth()
+      );
+    }
+
+    return true;
+  });
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return t("unknownDate");
+
     const date = new Date(dateString);
+
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -101,178 +174,234 @@ export default function FertilizerHistory() {
     });
   };
 
-  const getNPKColor = (level: string) => {
-    switch (level) {
-      case "High":
-        return "#4CAF50";
-      case "Medium":
-        return "#FF9800";
-      case "Low":
-        return "#F44336";
-      default:
-        return "#9E9E9E";
-    }
+  const formatTime = (dateString?: string) => {
+    if (!dateString) return "";
+
+    const date = new Date(dateString);
+
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
-  const renderPlanCard = ({ item, index }: { item: typeof mockPlans[0]; index: number }) => (
-    <Animated.View
-      style={[
-        {
-          opacity: fadeAnim,
-          transform: [
-            {
-              translateY: slideAnim.interpolate({
-                inputRange: [0, 30],
-                outputRange: [0, 30 + index * 10],
-              }),
-            },
-          ],
-        },
-      ]}
-    >
-      <TouchableOpacity
-        activeOpacity={0.7}
-        style={styles.planCard}
-        onPress={() => {
-          router.push({
-            pathname: "/fertilizer-management/plan",
-            params: {
-              soil: item.soilType,
-              stage: item.plantStage,
-              temperature: item.temperature,
-              moisture: item.moisture,
-              soilPH: item.ph,
-              N: item.npk.n,
-              P: item.npk.p,
-              K: item.npk.k,
-              fromHistory: "true",
-            },
-          });
-        }}
-      >
-        {/* Card Header */}
-        <View style={styles.cardHeader}>
-          <View style={styles.dateContainer}>
-            <Ionicons name="calendar-outline" size={16} color="#4E6E4E" />
-            <Text style={styles.dateText}>{formatDate(item.date)}</Text>
-          </View>
-          <View
-            style={[
-              styles.statusBadge,
+  const getNPKColor = (value?: number) => {
+    if (value === undefined || value === null) return "#9E9E9E";
+    if (value >= 60) return "#4CAF50";
+    if (value >= 30) return "#FF9800";
+    return "#F44336";
+  };
+
+  const getSelectedFilterLabel = () => {
+    return filters.find((filter) => filter.key === selectedFilter)?.label || "";
+  };
+
+  const openHistoryPlan = (item: FertilizerHistoryItem) => {
+    const input = item.input_data || {};
+    const result = item.prediction_result || {};
+
+    const predictionPayload = {
+      success: true,
+      data: {
+        history_id: item.id,
+        prediction: result,
+      },
+    };
+
+    router.push({
+      pathname: "/fertilizer-management/plan",
+      params: {
+        soil: input.Soil_Type || t("notAvailable"),
+        stage: input.Plant_Age_Category || t("notAvailable"),
+        moisture:
+          input.Soil_Moisture !== undefined
+            ? String(Math.round(input.Soil_Moisture))
+            : t("notAvailable"),
+        soilPH:
+          input.Soil_pH !== undefined
+            ? String(Number(input.Soil_pH).toFixed(1))
+            : t("notAvailable"),
+        N: input.N !== undefined ? String(input.N) : t("notAvailable"),
+        P: input.P !== undefined ? String(input.P) : t("notAvailable"),
+        K: input.K !== undefined ? String(input.K) : t("notAvailable"),
+        applicationTiming: input.Application_Timing || t("notAvailable"),
+        additionalAdvice: input.Additional_Advice || "",
+        prediction: JSON.stringify(predictionPayload),
+        fromHistory: "true",
+      },
+    });
+  };
+
+  const renderHistoryCard = ({
+    item,
+    index,
+  }: {
+    item: FertilizerHistoryItem;
+    index: number;
+  }) => {
+    const input = item.input_data || {};
+    const result = item.prediction_result || {};
+
+    return (
+      <Animated.View
+        style={[
+          {
+            opacity: fadeAnim,
+            transform: [
               {
-                backgroundColor:
-                  item.status === "Active" ? "#E8F5E9" : "#F5F5F5",
+                translateY: slideAnim.interpolate({
+                  inputRange: [0, 30],
+                  outputRange: [0, 30 + index * 8],
+                }),
               },
-            ]}
-          >
-            <View
-              style={[
-                styles.statusDot,
-                {
-                  backgroundColor:
-                    item.status === "Active" ? "#4CAF50" : "#9E9E9E",
-                },
-              ]}
-            />
-            <Text
-              style={[
-                styles.statusText,
-                {
-                  color: item.status === "Active" ? "#2E7D32" : "#616161",
-                },
-              ]}
-            >
-              {item.status}
+            ],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.75}
+          style={styles.planCard}
+          onPress={() => openHistoryPlan(item)}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.dateContainer}>
+              <Ionicons name="calendar-outline" size={16} color="#4E6E4E" />
+              <View>
+                <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
+                <Text style={styles.timeText}>{formatTime(item.created_at)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.fertilizerBadge}>
+              <Ionicons name="leaf-outline" size={14} color="#2E7D32" />
+              <Text style={styles.fertilizerBadgeText} numberOfLines={1}>
+                {result.recommended_fertilizer || t("fertilizerLabel")}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.recommendationBox}>
+            <Text style={styles.recommendationLabel}>
+              {t("recommendedDosage")}
+            </Text>
+            <Text style={styles.recommendationValue}>
+              {result.recommended_dosage_g_per_plant !== undefined
+                ? `${result.recommended_dosage_g_per_plant} g / ${t("perPlant")}`
+                : t("notAvailable")}
             </Text>
           </View>
-        </View>
 
-        {/* Main Info */}
-        <View style={styles.cardBody}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <View style={styles.infoIconWrapper}>
-                <Ionicons name="layers-outline" size={20} color="#2E7D32" />
+          <View style={styles.cardBody}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoItem}>
+                <View style={styles.infoIconWrapper}>
+                  <Ionicons name="layers-outline" size={20} color="#2E7D32" />
+                </View>
+                <View style={styles.infoTextWrap}>
+                  <Text style={styles.infoLabel}>{t("soilType")}</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {input.Soil_Type || t("notAvailable")}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text style={styles.infoLabel}>Soil Type</Text>
-                <Text style={styles.infoValue}>{item.soilType}</Text>
+
+              <View style={styles.infoItem}>
+                <View style={styles.infoIconWrapper}>
+                  <Ionicons name="analytics-outline" size={20} color="#2E7D32" />
+                </View>
+                <View style={styles.infoTextWrap}>
+                  <Text style={styles.infoLabel}>{t("plantStage")}</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {input.Plant_Age_Category || t("notAvailable")}
+                  </Text>
+                </View>
               </View>
             </View>
-            <View style={styles.infoItem}>
-              <View style={styles.infoIconWrapper}>
-                <Ionicons name="analytics-outline" size={20} color="#2E7D32" />
+
+            <View style={styles.sensorRow}>
+              <View style={styles.sensorItem}>
+                <Ionicons name="water-outline" size={16} color="#4E6E4E" />
+                <Text style={styles.sensorText}>
+                  {input.Soil_Moisture !== undefined
+                    ? `${Math.round(input.Soil_Moisture)}%`
+                    : t("notAvailable")}
+                </Text>
               </View>
-              <View>
-                <Text style={styles.infoLabel}>Plant Stage</Text>
-                <Text style={styles.infoValue}>{item.plantStage}</Text>
+
+              <View style={styles.sensorItem}>
+                <Ionicons name="beaker-outline" size={16} color="#4E6E4E" />
+                <Text style={styles.sensorText}>
+                  {t("ph")}{" "}
+                  {input.Soil_pH !== undefined
+                    ? Number(input.Soil_pH).toFixed(1)
+                    : t("notAvailable")}
+                </Text>
+              </View>
+
+              <View style={styles.sensorItem}>
+                <Ionicons name="time-outline" size={16} color="#4E6E4E" />
+                <Text style={styles.sensorText} numberOfLines={1}>
+                  {input.Application_Timing || t("notAvailable")}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.npkRow}>
+              <Text style={styles.npkLabel}>{t("npkValues")}</Text>
+
+              <View style={styles.npkBadges}>
+                <View
+                  style={[
+                    styles.npkBadge,
+                    { backgroundColor: getNPKColor(input.N) },
+                  ]}
+                >
+                  <Text style={styles.npkBadgeText}>
+                    N: {input.N ?? t("notAvailable")}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.npkBadge,
+                    { backgroundColor: getNPKColor(input.P) },
+                  ]}
+                >
+                  <Text style={styles.npkBadgeText}>
+                    P: {input.P ?? t("notAvailable")}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.npkBadge,
+                    { backgroundColor: getNPKColor(input.K) },
+                  ]}
+                >
+                  <Text style={styles.npkBadgeText}>
+                    K: {input.K ?? t("notAvailable")}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
 
-          {/* Sensor Data Row */}
-          <View style={styles.sensorRow}>
-            <View style={styles.sensorItem}>
-              <Ionicons name="thermometer-outline" size={16} color="#4E6E4E" />
-              <Text style={styles.sensorText}>{item.temperature}</Text>
-            </View>
-            <View style={styles.sensorItem}>
-              <Ionicons name="water-outline" size={16} color="#4E6E4E" />
-              <Text style={styles.sensorText}>{item.moisture}</Text>
-            </View>
-            <View style={styles.sensorItem}>
-              <Ionicons name="beaker-outline" size={16} color="#4E6E4E" />
-              <Text style={styles.sensorText}>pH {item.ph}</Text>
-            </View>
+          <View style={styles.cardFooter}>
+            <Text style={styles.viewDetailsText}>
+              {t("viewPredictionDetails")}
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color="#2E7D32" />
           </View>
-
-          {/* NPK Levels */}
-          <View style={styles.npkRow}>
-            <Text style={styles.npkLabel}>NPK Levels:</Text>
-            <View style={styles.npkBadges}>
-              <View
-                style={[
-                  styles.npkBadge,
-                  { backgroundColor: getNPKColor(item.npk.n) },
-                ]}
-              >
-                <Text style={styles.npkBadgeText}>N: {item.npk.n}</Text>
-              </View>
-              <View
-                style={[
-                  styles.npkBadge,
-                  { backgroundColor: getNPKColor(item.npk.p) },
-                ]}
-              >
-                <Text style={styles.npkBadgeText}>P: {item.npk.p}</Text>
-              </View>
-              <View
-                style={[
-                  styles.npkBadge,
-                  { backgroundColor: getNPKColor(item.npk.k) },
-                ]}
-              >
-                <Text style={styles.npkBadgeText}>K: {item.npk.k}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* View Details Arrow */}
-        <View style={styles.cardFooter}>
-          <Text style={styles.viewDetailsText}>View Full Plan</Text>
-          <Ionicons name="chevron-forward" size={20} color="#2E7D32" />
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   return (
     <LinearGradient
       colors={["#E8F5E9", "#C8E6C9", "#A5D6A7"]}
       style={styles.container}
     >
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -281,15 +410,26 @@ export default function FertilizerHistory() {
         >
           <Ionicons name="arrow-back" size={24} color="#1B5E20" />
         </TouchableOpacity>
+
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Plan History</Text>
+          <Text style={styles.headerTitle}>{t("predictionHistory")}</Text>
           <Text style={styles.headerSubtitle}>
-            {filteredPlans.length} plan{filteredPlans.length !== 1 ? "s" : ""} found
+            {filteredHistory.length}{" "}
+            {filteredHistory.length === 1
+              ? t("recordFound")
+              : t("recordsFound")}
           </Text>
         </View>
+
+        <TouchableOpacity
+          onPress={onRefresh}
+          style={styles.refreshButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="refresh" size={22} color="#1B5E20" />
+        </TouchableOpacity>
       </View>
 
-      {/* Filter Pills */}
       <Animated.View
         style={[
           styles.filterContainer,
@@ -303,49 +443,78 @@ export default function FertilizerHistory() {
         >
           {filters.map((filter) => (
             <TouchableOpacity
-              key={filter}
+              key={filter.key}
               activeOpacity={0.7}
-              onPress={() => setSelectedFilter(filter)}
+              onPress={() => setSelectedFilter(filter.key)}
               style={[
                 styles.filterPill,
-                selectedFilter === filter && styles.filterPillActive,
+                selectedFilter === filter.key && styles.filterPillActive,
               ]}
             >
               <Text
                 style={[
                   styles.filterText,
-                  selectedFilter === filter && styles.filterTextActive,
+                  selectedFilter === filter.key && styles.filterTextActive,
                 ]}
               >
-                {filter}
+                {filter.label}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </Animated.View>
 
-      {/* Plans List */}
-      {filteredPlans.length > 0 ? (
+      {loading ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color="#2E7D32" />
+          <Text style={styles.loadingText}>
+            {t("loadingFertilizerHistory")}
+          </Text>
+        </View>
+      ) : errorMessage ? (
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconWrapper}>
+            <Ionicons name="warning-outline" size={64} color="#F44336" />
+          </View>
+
+          <Text style={styles.emptyTitle}>{t("unableToLoadHistory")}</Text>
+          <Text style={styles.emptyDescription}>{errorMessage}</Text>
+
+          <TouchableOpacity style={styles.retryButton} onPress={loadHistory}>
+            <Text style={styles.retryButtonText}>{t("tryAgain")}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : filteredHistory.length > 0 ? (
         <FlatList
-          data={filteredPlans}
-          renderItem={renderPlanCard}
+          data={filteredHistory}
+          renderItem={renderHistoryCard}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#2E7D32"
+              colors={["#2E7D32"]}
+            />
+          }
         />
       ) : (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconWrapper}>
             <Ionicons name="document-text-outline" size={64} color="#9E9E9E" />
           </View>
-          <Text style={styles.emptyTitle}>No Plans Found</Text>
+
+          <Text style={styles.emptyTitle}>{t("noHistoryFound")}</Text>
           <Text style={styles.emptyDescription}>
-            No {selectedFilter.toLowerCase()} fertilizer plans available.
+            {t("noFertilizerPredictionsAvailable", {
+              filter: getSelectedFilterLabel().toLowerCase(),
+            } as any)}
           </Text>
         </View>
       )}
 
-      {/* Floating Action Button */}
       <TouchableOpacity
         activeOpacity={0.85}
         style={styles.fab}
@@ -375,6 +544,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  refreshButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -453,33 +635,58 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
+    gap: 10,
   },
   dateContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
+    flex: 1,
   },
   dateText: {
     fontSize: 13,
     color: "#4E6E4E",
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  statusBadge: {
+  timeText: {
+    fontSize: 11,
+    color: "#7A8F7A",
+    fontWeight: "500",
+    marginTop: 1,
+  },
+  fertilizerBadge: {
+    maxWidth: 150,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    gap: 6,
+    gap: 5,
+    backgroundColor: "#E8F5E9",
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusText: {
+  fertilizerBadgeText: {
     fontSize: 12,
+    fontWeight: "800",
+    color: "#2E7D32",
+  },
+  recommendationBox: {
+    backgroundColor: "#F1F8E9",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#DCEFD3",
+  },
+  recommendationLabel: {
+    fontSize: 12,
+    color: "#4E6E4E",
     fontWeight: "700",
+    marginBottom: 4,
+  },
+  recommendationValue: {
+    fontSize: 20,
+    color: "#1B5E20",
+    fontWeight: "900",
   },
   cardBody: {
     gap: 12,
@@ -505,6 +712,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  infoTextWrap: {
+    flex: 1,
+  },
   infoLabel: {
     fontSize: 11,
     color: "#4E6E4E",
@@ -522,11 +732,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
     padding: 10,
     borderRadius: 12,
+    gap: 8,
   },
   sensorItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flex: 1,
+    justifyContent: "center",
   },
   sensorText: {
     fontSize: 13,
@@ -537,6 +750,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
   },
   npkLabel: {
     fontSize: 13,
@@ -571,6 +785,18 @@ const styles = StyleSheet.create({
     color: "#2E7D32",
     fontWeight: "700",
   },
+  loadingState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#2E7D32",
+    fontWeight: "600",
+  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -602,6 +828,18 @@ const styles = StyleSheet.create({
     color: "#4E6E4E",
     textAlign: "center",
     lineHeight: 20,
+  },
+  retryButton: {
+    marginTop: 18,
+    backgroundColor: "#2E7D32",
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 22,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
   },
   fab: {
     position: "absolute",

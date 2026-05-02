@@ -8,102 +8,185 @@ import {
   ScrollView,
   Image,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { API_ENDPOINTS } from "../../config/api";
+import { useLanguage } from "../../context/LanguageContext";
+
+type Severity = "Healthy" | "Low" | "Medium" | "High" | "Critical";
 
 type ScanRecord = {
   id: string;
   date: string;
   time: string;
   disease: string;
-  severity: "Healthy" | "Low" | "Medium" | "High" | "Critical";
+  severity: Severity;
   confidence: number;
-  imageUri: string;
+  imageUri: string | null;
   treatment?: string;
 };
 
+const DEFAULT_IMAGE = require("../../assets/images/default-leaf.png");
+
 export default function ScanHistoryScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [activeFilter, setActiveFilter] = useState<string>("all");
 
-  // Mock data - replace with actual data from your backend/storage
-  const scanHistory: ScanRecord[] = [
-    {
-      id: "1",
-      date: "Today",
-      time: "2:30 PM",
-      disease: "Healthy",
-      severity: "Healthy",
-      confidence: 96.5,
-      imageUri: "https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797?w=400",
-    },
-    {
-      id: "2",
-      date: "Today",
-      time: "10:15 AM",
-      disease: "Aloe Rust",
-      severity: "High",
-      confidence: 88.3,
-      imageUri: "https://images.unsplash.com/photo-1615485500834-bc10199bc743?w=400",
-      treatment: "Apply fungicide, remove affected leaves",
-    },
-    {
-      id: "3",
-      date: "Yesterday",
-      time: "4:20 PM",
-      disease: "Leaf Spot Disease",
-      severity: "Medium",
-      confidence: 82.7,
-      imageUri: "https://images.unsplash.com/photo-1616423840226-1c0f9523ec50?w=400",
-      treatment: "Improve air circulation, fungicide spray",
-    },
-    {
-      id: "4",
-      date: "Jan 1, 2026",
-      time: "11:45 AM",
-      disease: "Root Rot",
-      severity: "Critical",
-      confidence: 91.2,
-      imageUri: "https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797?w=400",
-      treatment: "Reduce watering, improve drainage immediately",
-    },
-    {
-      id: "5",
-      date: "Jan 1, 2026",
-      time: "9:00 AM",
-      disease: "Healthy",
-      severity: "Healthy",
-      confidence: 94.8,
-      imageUri: "https://images.unsplash.com/photo-1615485500834-bc10199bc743?w=400",
-    },
-    {
-      id: "6",
-      date: "Dec 31, 2025",
-      time: "3:15 PM",
-      disease: "Scale Insects",
-      severity: "Low",
-      confidence: 79.5,
-      imageUri: "https://images.unsplash.com/photo-1616423840226-1c0f9523ec50?w=400",
-      treatment: "Remove manually, apply neem oil",
-    },
-  ];
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [scanHistory, setScanHistory] = useState<ScanRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const filters = [
-    { id: "all", label: "All", icon: "apps" as const },
-    { id: "healthy", label: "Healthy", icon: "checkmark-circle" as const },
-    { id: "diseased", label: "Diseased", icon: "alert-circle" as const },
+    { id: "all", label: t("filterAll"), icon: "apps" as const },
+    { id: "healthy", label: t("filterHealthy"), icon: "checkmark-circle" as const },
+    { id: "diseased", label: t("filterDiseased"), icon: "alert-circle" as const },
   ];
 
   useEffect(() => {
+    fetchHistory();
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
       useNativeDriver: true,
     }).start();
   }, []);
+
+  const getSeverityFromDisease = (disease: string): Severity => {
+    switch (disease) {
+      case "Healthy":
+        return "Healthy";
+      case "Aloe Rust":
+      case "Anthracnose":
+        return "High";
+      case "Leaf Spot":
+      case "Sunburn":
+        return "Medium";
+      case "Invalid":
+        return "Low";
+      default:
+        return "Low";
+    }
+  };
+
+  const getTranslatedDisease = (disease: string) => {
+    switch (disease) {
+      case "Aloe Rust":
+        return t("aloeRust");
+      case "Anthracnose":
+        return t("anthracnose");
+      case "Healthy":
+        return t("healthy");
+      case "Leaf Spot":
+        return t("leafSpot");
+      case "Sunburn":
+        return t("sunburn");
+      case "Invalid":
+        return t("invalid");
+      default:
+        return disease || t("unknown");
+    }
+  };
+
+  const getSeverityLabel = (severity: Severity) => {
+    switch (severity) {
+      case "Healthy":
+        return t("healthy");
+      case "Low":
+        return t("severityLow");
+      case "Medium":
+        return t("severityMedium");
+      case "High":
+        return t("severityHigh");
+      case "Critical":
+        return t("severityCritical");
+      default:
+        return severity;
+    }
+  };
+
+  const getTreatmentFromDisease = (disease: string) => {
+    switch (disease) {
+      case "Aloe Rust":
+        return t("diseaseTreatmentAloeRust");
+      case "Anthracnose":
+        return t("diseaseTreatmentAnthracnose");
+      case "Leaf Spot":
+        return t("diseaseTreatmentLeafSpot");
+      case "Sunburn":
+        return t("diseaseTreatmentSunburn");
+      case "Healthy":
+        return undefined;
+      case "Invalid":
+        return t("diseaseTreatmentInvalid");
+      default:
+        return t("diseaseTreatmentDefault");
+    }
+  };
+
+  const formatDateLabel = (dateObj: Date) => {
+    const todayDate = new Date();
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(todayDate.getDate() - 1);
+
+    const sameDay = (a: Date, b: Date) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
+
+    if (sameDay(dateObj, todayDate)) return t("today");
+    if (sameDay(dateObj, yesterdayDate)) return t("yesterday");
+
+    return dateObj.toLocaleDateString();
+  };
+
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.diseaseHistory);
+      const result = await response.json();
+
+      const formatted: ScanRecord[] = (result.data || []).map((item: any) => {
+        const dateObj = new Date(item.created_at);
+        const confidenceValue =
+          Number(item.confidence) <= 1
+            ? Number(item.confidence) * 100
+            : Number(item.confidence);
+
+        return {
+          id: item._id,
+          date: formatDateLabel(dateObj),
+          time: dateObj.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          disease: item.disease,
+          severity: getSeverityFromDisease(item.disease),
+          confidence: confidenceValue,
+          imageUri: item.image || null,
+          treatment: getTreatmentFromDisease(item.disease),
+        };
+      });
+
+      setScanHistory(formatted);
+    } catch (error) {
+      console.error("History fetch error:", error);
+      setScanHistory([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchHistory();
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -142,9 +225,12 @@ export default function ScanHistoryScreen() {
   const getFilteredScans = () => {
     if (activeFilter === "healthy") {
       return scanHistory.filter((scan) => scan.severity === "Healthy");
-    } else if (activeFilter === "diseased") {
+    }
+
+    if (activeFilter === "diseased") {
       return scanHistory.filter((scan) => scan.severity !== "Healthy");
     }
+
     return scanHistory;
   };
 
@@ -159,12 +245,12 @@ export default function ScanHistoryScreen() {
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#E8F5E9" />
+
       <LinearGradient
         colors={["#E8F5E9", "#C8E6C9", "#A5D6A7"]}
         style={styles.container}
       >
         <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
@@ -173,43 +259,46 @@ export default function ScanHistoryScreen() {
             >
               <Ionicons name="arrow-back" size={24} color="#1B5E20" />
             </TouchableOpacity>
+
             <View style={styles.headerText}>
-              <Text style={styles.title}>Scan History</Text>
+              <Text style={styles.title}>{t("scanHistoryTitle")}</Text>
               <Text style={styles.subtitle}>
-                {filteredScans.length} {filteredScans.length === 1 ? "scan" : "scans"}
+                {filteredScans.length}{" "}
+                {filteredScans.length === 1 ? t("scanSingular") : t("scanPlural")}
               </Text>
             </View>
+
             <TouchableOpacity style={styles.searchButton} activeOpacity={0.7}>
               <Ionicons name="search" size={22} color="#1B5E20" />
             </TouchableOpacity>
           </View>
 
-          {/* Stats Cards */}
           <View style={styles.statsContainer}>
             <View style={[styles.statCard, styles.statCardPrimary]}>
               <Ionicons name="scan-circle" size={28} color="#2E7D32" />
               <View style={styles.statContent}>
                 <Text style={styles.statNumber}>{stats.total}</Text>
-                <Text style={styles.statLabel}>Total Scans</Text>
+                <Text style={styles.statLabel}>{t("totalScans")}</Text>
               </View>
             </View>
+
             <View style={styles.statCard}>
               <Ionicons name="checkmark-circle" size={28} color="#2E7D32" />
               <View style={styles.statContent}>
                 <Text style={styles.statNumber}>{stats.healthy}</Text>
-                <Text style={styles.statLabel}>Healthy</Text>
+                <Text style={styles.statLabel}>{t("healthy")}</Text>
               </View>
             </View>
+
             <View style={styles.statCard}>
               <Ionicons name="alert-circle" size={28} color="#E64A19" />
               <View style={styles.statContent}>
                 <Text style={styles.statNumber}>{stats.diseased}</Text>
-                <Text style={styles.statLabel}>Diseased</Text>
+                <Text style={styles.statLabel}>{t("diseased")}</Text>
               </View>
             </View>
           </View>
 
-          {/* Filters */}
           <View style={styles.filterContainer}>
             {filters.map((filter) => (
               <TouchableOpacity
@@ -224,9 +313,7 @@ export default function ScanHistoryScreen() {
                 <Ionicons
                   name={filter.icon}
                   size={18}
-                  color={
-                    activeFilter === filter.id ? "#FFFFFF" : "#2E7D32"
-                  }
+                  color={activeFilter === filter.id ? "#FFFFFF" : "#2E7D32"}
                 />
                 <Text
                   style={[
@@ -240,130 +327,158 @@ export default function ScanHistoryScreen() {
             ))}
           </View>
 
-          {/* Scan List */}
-          <ScrollView
-            style={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-          >
-            {filteredScans.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="leaf-outline" size={64} color="#A5D6A7" />
-                <Text style={styles.emptyTitle}>No scans found</Text>
-                <Text style={styles.emptySubtitle}>
-                  Start scanning aloe leaves to see your history
-                </Text>
-                <TouchableOpacity
-                  style={styles.emptyCTA}
-                  onPress={() => router.push("/disease-management/capture")}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.emptyCTAText}>Scan Now</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              filteredScans.map((scan, index) => (
-                <Animated.View
-                  key={scan.id}
-                  style={[
-                    styles.scanCard,
-                    {
-                      opacity: fadeAnim,
-                      transform: [
-                        {
-                          translateY: fadeAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [50 + index * 10, 0],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#2E7D32" />
+              <Text style={styles.loadingText}>{t("loadingScanHistory")}</Text>
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#2E7D32"
+                  colors={["#2E7D32"]}
+                />
+              }
+            >
+              {filteredScans.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="leaf-outline" size={64} color="#A5D6A7" />
+                  <Text style={styles.emptyTitle}>{t("noScansFound")}</Text>
+                  <Text style={styles.emptySubtitle}>
+                    {t("startScanningLeavesHistory")}
+                  </Text>
+
                   <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={styles.scanCardContent}
-                    onPress={() => {
-                      // Navigate to detail screen
-                      // router.push(`/disease-management/detail/${scan.id}`);
-                    }}
+                    style={styles.emptyCTA}
+                    onPress={() => router.push("/disease-management/capture")}
+                    activeOpacity={0.85}
                   >
-                    {/* Image */}
-                    <View style={styles.imageContainer}>
-                      <Image
-                        source={{ uri: scan.imageUri }}
-                        style={styles.scanImage}
-                      />
-                      <View
-                        style={[
-                          styles.severityBadge,
+                    <Text style={styles.emptyCTAText}>{t("scanNow")}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                filteredScans.map((scan, index) => (
+                  <Animated.View
+                    key={scan.id}
+                    style={[
+                      styles.scanCard,
+                      {
+                        opacity: fadeAnim,
+                        transform: [
                           {
-                            backgroundColor: getSeverityBgColor(scan.severity),
+                            translateY: fadeAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [50 + index * 10, 0],
+                            }),
                           },
-                        ]}
-                      >
-                        <Text
+                        ],
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.scanCardContent}
+                    >
+                      <View style={styles.imageContainer}>
+                        <Image
+                          source={
+                            scan.imageUri
+                              ? { uri: scan.imageUri }
+                              : DEFAULT_IMAGE
+                          }
+                          style={styles.scanImage}
+                          resizeMode="cover"
+                        />
+
+                        <View
                           style={[
-                            styles.severityText,
-                            { color: getSeverityColor(scan.severity) },
+                            styles.severityBadge,
+                            {
+                              backgroundColor: getSeverityBgColor(scan.severity),
+                            },
                           ]}
                         >
-                          {scan.severity}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Info */}
-                    <View style={styles.scanInfo}>
-                      <View style={styles.scanHeader}>
-                        <Text style={styles.diseaseText}>{scan.disease}</Text>
-                        <View style={styles.confidenceBadge}>
-                          <Ionicons
-                            name="speedometer-outline"
-                            size={12}
-                            color="#1B5E20"
-                          />
-                          <Text style={styles.confidenceText}>
-                            {scan.confidence.toFixed(1)}%
+                          <Text
+                            style={[
+                              styles.severityText,
+                              { color: getSeverityColor(scan.severity) },
+                            ]}
+                          >
+                            {getSeverityLabel(scan.severity)}
                           </Text>
                         </View>
                       </View>
 
-                      <View style={styles.dateRow}>
-                        <Ionicons name="calendar-outline" size={14} color="#666" />
-                        <Text style={styles.dateText}>{scan.date}</Text>
-                        <Ionicons name="time-outline" size={14} color="#666" />
-                        <Text style={styles.dateText}>{scan.time}</Text>
-                      </View>
+                      <View style={styles.scanInfo}>
+                        <View style={styles.scanHeader}>
+                          <Text style={styles.diseaseText}>
+                            {getTranslatedDisease(scan.disease)}
+                          </Text>
 
-                      {scan.treatment && (
-                        <View style={styles.treatmentRow}>
+                          <View style={styles.confidenceBadge}>
+                            <Ionicons
+                              name="speedometer-outline"
+                              size={12}
+                              color="#1B5E20"
+                            />
+                            <Text style={styles.confidenceText}>
+                              {scan.confidence.toFixed(1)}%
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.dateRow}>
                           <Ionicons
-                            name="medical-outline"
+                            name="calendar-outline"
                             size={14}
-                            color="#2E7D32"
+                            color="#666"
                           />
-                          <Text style={styles.treatmentText} numberOfLines={2}>
-                            {scan.treatment}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                          <Text style={styles.dateText}>{scan.date}</Text>
 
-                    {/* Arrow */}
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color="#A5D6A7"
-                    />
-                  </TouchableOpacity>
-                </Animated.View>
-              ))
-            )}
-          </ScrollView>
+                          <Ionicons
+                            name="time-outline"
+                            size={14}
+                            color="#666"
+                          />
+                          <Text style={styles.dateText}>{scan.time}</Text>
+                        </View>
+
+                        {scan.treatment && (
+                          <View style={styles.treatmentRow}>
+                            <Ionicons
+                              name="medical-outline"
+                              size={14}
+                              color="#2E7D32"
+                            />
+                            <Text
+                              style={styles.treatmentText}
+                              numberOfLines={2}
+                            >
+                              {scan.treatment}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color="#A5D6A7"
+                      />
+                    </TouchableOpacity>
+                  </Animated.View>
+                ))
+              )}
+            </ScrollView>
+          )}
         </Animated.View>
 
-        {/* FAB */}
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.85}
@@ -380,7 +495,6 @@ export default function ScanHistoryScreen() {
     </>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -508,6 +622,18 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 80,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2E7D32",
   },
   scanCard: {
     backgroundColor: "#FFFFFF",
