@@ -1067,6 +1067,11 @@ const en = {
   severityMedium: "Medium",
   severityHigh: "High",
   severityCritical: "Critical",
+
+  chartTotal: "Total",
+  chartThisWeek: "This week",
+  chartHealthy: "Healthy",
+  chartDiseased: "Diseased",
 };
 
 export default en;
