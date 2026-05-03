@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { LineChart } from "react-native-chart-kit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLanguage } from "../../context/LanguageContext";
@@ -38,87 +39,6 @@ type ForecastPoint = {
   dateISO: string;
   gelWeightG: number;
 };
-
-function AnimatedBar({
-  item,
-  maxYield,
-  peakValue,
-  index,
-  total,
-}: {
-  item: ForecastPoint;
-  maxYield: number;
-  peakValue: number;
-  index: number;
-  total: number;
-}) {
-  const anim = useRef(new Animated.Value(0)).current;
-  const isPeak = item.gelWeightG === peakValue;
-  const targetHeight = Math.max((item.gelWeightG / maxYield) * 120, 8);
-
-  useEffect(() => {
-    anim.setValue(0);
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 500,
-      delay: index * 40,
-      useNativeDriver: false,
-    }).start();
-  }, [item.gelWeightG, maxYield]);
-
-  const animatedHeight = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, targetHeight],
-  });
-
-  const showLabel = total <= 7;
-
-  return (
-    <View style={barStyles.col}>
-      {showLabel && (
-        <Text style={[barStyles.val, isPeak && barStyles.valPeak]}>
-          {item.gelWeightG.toFixed(1)}
-        </Text>
-      )}
-      <View style={barStyles.barWrapper}>
-        <Animated.View
-          style={{ height: animatedHeight, width: "100%", borderRadius: 6, overflow: "hidden" }}
-        >
-          <LinearGradient
-            colors={isPeak ? ["#4CAF50", "#2E7D32"] : ["#A5D6A7", "#81C784"]}
-            style={StyleSheet.absoluteFill}
-          />
-          {isPeak && <View style={barStyles.peakDot} />}
-        </Animated.View>
-      </View>
-      <Text style={[barStyles.label, isPeak && barStyles.labelPeak]}>{item.label}</Text>
-    </View>
-  );
-}
-
-const barStyles = StyleSheet.create({
-  col: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 4,
-    paddingHorizontal: 1,
-  },
-  val: { fontSize: 8, fontWeight: "700", color: "#4E6E4E", textAlign: "center" },
-  valPeak: { color: "#2E7D32" },
-  barWrapper: { width: "100%", alignItems: "center", justifyContent: "flex-end", height: 120 },
-  label: { fontSize: 9, color: "#9E9E9E", fontWeight: "600", textAlign: "center" },
-  labelPeak: { color: "#2E7D32", fontWeight: "700" },
-  peakDot: {
-    position: "absolute",
-    top: 4,
-    alignSelf: "center",
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.7)",
-  },
-});
 
 export default function YieldHistoryScreen() {
   const { t, language } = useLanguage();
@@ -250,10 +170,6 @@ export default function YieldHistoryScreen() {
     };
   }, [forecastData, plantCount]);
 
-  const maxYield = useMemo(
-    () => Math.max(...forecastData.map((d) => d.gelWeightG), 1),
-    [forecastData]
-  );
   const peakValue = useMemo(() => stats.max, [stats]);
 
   const trend = useMemo(() => {
@@ -293,6 +209,45 @@ export default function YieldHistoryScreen() {
     return `${t("forecastStableAround")} ${stats.avg}g ${t("perPlantAcrossSelectedPeriod")}`;
   }, [forecastData, stats, t]);
 
+  // ─── Chart helpers ──────────────────────────────────────────────
+  const CHART_WIDTH = width - 64; // card padding 20 * 2 + screen padding 12 * 2
+
+  /**
+   * For 30-day view, only show every 5th label so the x-axis isn't crowded.
+   * react-native-chart-kit always renders every label, so we blank the others.
+   */
+  const chartLabels = useMemo(() => {
+    if (!forecastData.length) return [];
+    if (timeRange === "week") return forecastData.map((d) => d.label);
+    return forecastData.map((d, i) => (i % 5 === 0 ? d.label : ""));
+  }, [forecastData, timeRange]);
+
+  const chartValues = useMemo(
+    () => (forecastData.length ? forecastData.map((d) => d.gelWeightG) : [0]),
+    [forecastData]
+  );
+
+  const chartConfig = {
+    backgroundGradientFrom: "#FFFFFF",
+    backgroundGradientTo: "#FFFFFF",
+    backgroundGradientFromOpacity: 0,
+    backgroundGradientToOpacity: 0,
+    decimalPlaces: 1,
+    color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,   // line colour
+    labelColor: () => "#9E9E9E",
+    strokeWidth: 2.5,
+    propsForDots: {
+      r: timeRange === "week" ? "5" : "3",
+      strokeWidth: "2",
+      stroke: "#FFFFFF",
+    },
+    propsForBackgroundLines: {
+      strokeDasharray: "4 4",
+      stroke: "rgba(0,0,0,0.06)",
+      strokeWidth: 1,
+    },
+  };
+
   return (
     <LinearGradient colors={["#E8F5E9", "#F1F8E9", "#FFFFFF"]} style={styles.container}>
       <ScrollView
@@ -300,6 +255,7 @@ export default function YieldHistoryScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Header ── */}
         <Animated.View
           style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -331,6 +287,7 @@ export default function YieldHistoryScreen() {
           </View>
         </Animated.View>
 
+        {/* ── Toggle ── */}
         <Animated.View
           style={[styles.toggle, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -366,6 +323,7 @@ export default function YieldHistoryScreen() {
           </TouchableOpacity>
         </Animated.View>
 
+        {/* ── Stat cards ── */}
         <Animated.View
           style={[styles.statsGrid, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -397,6 +355,7 @@ export default function YieldHistoryScreen() {
           </View>
         </Animated.View>
 
+        {/* ── Trend pill ── */}
         {trend && (
           <Animated.View
             style={[styles.trendRow, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
@@ -409,16 +368,18 @@ export default function YieldHistoryScreen() {
           </Animated.View>
         )}
 
+        {/* ── LINE CHART CARD ── */}
         <Animated.View
           style={[styles.chartCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
         >
+          {/* Header row */}
           <View style={styles.chartHeaderRow}>
             <View>
               <Text style={styles.chartTitle}>{t("forecastTrend")}</Text>
               <Text style={styles.chartSub}>{t("predictedGelWeightPerPlant")}</Text>
             </View>
             <View style={styles.legendRow}>
-              <View style={styles.legendDot} />
+              <View style={styles.legendLine} />
               <Text style={styles.legendText}>{t("gelShort")}</Text>
             </View>
           </View>
@@ -435,22 +396,64 @@ export default function YieldHistoryScreen() {
               </View>
               <Text style={styles.errorText}>{error}</Text>
             </View>
-          ) : (
-            <View style={styles.barsContainer}>
-              {forecastData.map((d, i) => (
-                <AnimatedBar
-                  key={`${d.dateISO}-${timeRange}`}
-                  item={d}
-                  maxYield={maxYield}
-                  peakValue={peakValue}
-                  index={i}
-                  total={forecastData.length}
-                />
-              ))}
+          ) : forecastData.length > 0 ? (
+            <View style={styles.lineChartWrapper}>
+              <LineChart
+                data={{
+                  labels: chartLabels,
+                  datasets: [
+                    {
+                      data: chartValues,
+                      color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
+                      strokeWidth: 2.5,
+                    },
+                  ],
+                }}
+                width={CHART_WIDTH}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                withInnerLines
+                withOuterLines={false}
+                withShadow={false}
+                withDots
+                withVerticalLabels
+                withHorizontalLabels
+                yAxisSuffix="g"
+                fromZero={false}
+                style={styles.lineChart}
+                getDotColor={(dataPoint) =>
+                  dataPoint === peakValue ? "#1B5E20" : "#4CAF50"
+                }
+                renderDotContent={({ x, y, index, indexData }) => {
+                  if (indexData !== peakValue) return null;
+                  return (
+                    <View
+                      key={index}
+                      style={[styles.peakLabel, { left: x - 18, top: y - 26 }]}
+                    >
+                      <Text style={styles.peakLabelText}>
+                        {indexData.toFixed(1)}g
+                      </Text>
+                    </View>
+                  );
+                }}
+              />
+            </View>
+          ) : null}
+
+          {/* Y-axis hint */}
+          {!loading && !error && forecastData.length > 0 && (
+            <View style={styles.chartFooterRow}>
+              <View style={styles.chartFooterDot} />
+              <Text style={styles.chartFooterNote}>
+                {t("peak")}: {stats.max.toFixed(1)}g &nbsp;·&nbsp; {t("min")}: {stats.min.toFixed(1)}g
+              </Text>
             </View>
           )}
         </Animated.View>
 
+        {/* ── Insights card ── */}
         <Animated.View
           style={[styles.insightsCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -480,6 +483,7 @@ export default function YieldHistoryScreen() {
           </View>
         </Animated.View>
 
+        {/* ── Big KPI card ── */}
         <Animated.View
           style={[styles.mainCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
         >
@@ -505,6 +509,7 @@ export default function YieldHistoryScreen() {
           </LinearGradient>
         </Animated.View>
 
+        {/* ── Breakdown list ── */}
         <Animated.View
           style={[styles.listCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
@@ -522,6 +527,7 @@ export default function YieldHistoryScreen() {
 
           {forecastData.map((item, i) => {
             const totalKg = ((item.gelWeightG * plantCount) / 1000).toFixed(2);
+            const maxYield = Math.max(...forecastData.map((d) => d.gelWeightG), 1);
             const barPct = (item.gelWeightG / maxYield) * 100;
             const isPeak = item.gelWeightG === peakValue;
 
@@ -543,11 +549,10 @@ export default function YieldHistoryScreen() {
                     )}
                   </View>
                   <Text style={styles.listDate}>
-                    {new Date(item.dateISO).toLocaleDateString(language === "si" ? "si-LK" : "en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {new Date(item.dateISO).toLocaleDateString(
+                      language === "si" ? "si-LK" : "en-US",
+                      { month: "short", day: "numeric", year: "numeric" }
+                    )}
                   </Text>
                   <View style={styles.miniBarBg}>
                     <LinearGradient
@@ -569,11 +574,10 @@ export default function YieldHistoryScreen() {
           })}
         </Animated.View>
 
+        {/* ── Footer note ── */}
         <View style={styles.footerNote}>
           <Ionicons name="information-circle-outline" size={16} color="#9E9E9E" />
-          <Text style={styles.footerText}>
-            {t("forecastFooterNote")}
-          </Text>
+          <Text style={styles.footerText}>{t("forecastFooterNote")}</Text>
         </View>
       </ScrollView>
     </LinearGradient>
@@ -585,173 +589,178 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: 20, paddingTop: 60, paddingBottom: 40 },
 
+  // ── Header
   header: { marginBottom: 20 },
   headerTop: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
   headerIconWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 56, height: 56, borderRadius: 28,
     backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: "center", alignItems: "center",
+    shadowColor: "#2E7D32", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
   },
   headerTextContainer: { flex: 1 },
   title: { fontSize: 26, fontWeight: "800", color: "#1B5E20" },
   subtitle: { fontSize: 14, color: "#4E6E4E", fontWeight: "500" },
   statusBanner: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    padding: 14,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    backgroundColor: "#FFFFFF", padding: 14, borderRadius: 12,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 4, elevation: 2,
   },
   statusIndicator: { flexDirection: "row", alignItems: "center", gap: 8 },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" },
   statusText: { fontSize: 14, fontWeight: "600", color: "#2E7D32" },
   pillRow: { flexDirection: "row", gap: 6 },
   infoPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#F1F8E9",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#F1F8E9", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20,
   },
   infoPillText: { fontSize: 11, fontWeight: "600", color: "#4E6E4E" },
 
+  // ── Toggle
   toggle: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    flexDirection: "row", backgroundColor: "#FFFFFF",
+    borderRadius: 14, padding: 4, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
   toggleBtn: { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: "center", overflow: "hidden" },
   toggleActive: {},
   toggleText: { fontSize: 13, fontWeight: "600", color: "#9E9E9E" },
   toggleTextActive: { color: "#FFFFFF" },
 
+  // ── Stats grid
   statsGrid: { flexDirection: "row", gap: 12, marginBottom: 16 },
   statCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 14,
+    flex: 1, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
   },
-  statIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: "center", alignItems: "center", marginBottom: 10 },
-  statLabel: { fontSize: 9, color: "#9E9E9E", fontWeight: "700", letterSpacing: 0.8, marginBottom: 4, textAlign: "center" },
+  statIcon: {
+    width: 44, height: 44, borderRadius: 22,
+    justifyContent: "center", alignItems: "center", marginBottom: 10,
+  },
+  statLabel: {
+    fontSize: 9, color: "#9E9E9E", fontWeight: "700",
+    letterSpacing: 0.8, marginBottom: 4, textAlign: "center",
+  },
   statValue: { fontSize: 22, fontWeight: "800", color: "#1B5E20", marginBottom: 2, letterSpacing: -0.5 },
   statSubtext: { fontSize: 10, color: "#BDBDBD", fontWeight: "500" },
 
+  // ── Trend row
   trendRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 20 },
-  trendPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 100 },
+  trendPill: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 100,
+  },
   trendText: { fontSize: 12, fontWeight: "700" },
   trendNote: { fontSize: 12, color: "#9E9E9E", fontWeight: "500" },
 
+  // ── Chart card (line chart)
   chartCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 20,
+    backgroundColor: "#FFFFFF", borderRadius: 24,
+    paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16,
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1, shadowRadius: 16, elevation: 6,
   },
-  chartHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 },
+  chartHeaderRow: {
+    flexDirection: "row", justifyContent: "space-between",
+    alignItems: "flex-start", marginBottom: 4,
+  },
   chartTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20" },
   chartSub: { fontSize: 12, color: "#9E9E9E", marginTop: 3, marginBottom: 16, fontWeight: "400" },
-  legendRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 },
-  legendDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#4CAF50" },
+  legendRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  legendLine: {
+    width: 18, height: 3, borderRadius: 2,
+    backgroundColor: "#4CAF50",
+  },
   legendText: { fontSize: 11, color: "#9E9E9E", fontWeight: "500" },
-  barsContainer: { flexDirection: "row", alignItems: "flex-end", height: 168, paddingTop: 24 },
+
+  lineChartWrapper: {
+    marginLeft: -20,   // bleed to card edge so axis labels aren't clipped
+    marginRight: -20,
+    marginBottom: 4,
+  },
+  lineChart: {
+    borderRadius: 0,
+  },
+
+  // Peak label rendered above the peak dot
+  peakLabel: {
+    position: "absolute",
+    backgroundColor: "#1B5E20",
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  peakLabelText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
+  chartFooterRow: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginTop: 8, paddingTop: 10,
+    borderTopWidth: 1, borderTopColor: "#F5F5F5",
+  },
+  chartFooterDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#4CAF50" },
+  chartFooterNote: { fontSize: 11, color: "#9E9E9E", fontWeight: "500" },
+
   loadingBox: { height: 140, justifyContent: "center", alignItems: "center", gap: 12 },
   loadingText: { fontSize: 13, color: "#4E6E4E", fontWeight: "500" },
   errorBox: { height: 120, justifyContent: "center", alignItems: "center", gap: 10 },
   errorText: { fontSize: 13, color: "#F44336", textAlign: "center", lineHeight: 20 },
 
+  // ── Big KPI card
   mainCard: {
-    marginBottom: 20,
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#2E7D32",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    marginBottom: 20, borderRadius: 24, overflow: "hidden",
+    shadowColor: "#2E7D32", shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
   },
   mainCardGradient: { padding: 24 },
   mainCardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
-  mainCardIconWrapper: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", justifyContent: "center", alignItems: "center" },
+  mainCardIconWrapper: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center", alignItems: "center",
+  },
   mainLabel: { fontSize: 16, color: "rgba(255,255,255,0.9)", fontWeight: "600" },
   mainValue: { fontSize: 52, fontWeight: "800", color: "#FFFFFF", marginBottom: 12, letterSpacing: -2 },
   mainCardFooter: { flexDirection: "row", alignItems: "center", gap: 6 },
   mainNote: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: "500" },
 
+  // ── Insights card
   insightsCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "#FFFFFF", borderRadius: 20, padding: 20, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
   },
   insightsHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
-  insightsIconWrapper: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFF3E0", justifyContent: "center", alignItems: "center" },
+  insightsIconWrapper: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: "#FFF3E0", justifyContent: "center", alignItems: "center",
+  },
   insightsTitle: { fontSize: 16, fontWeight: "700", color: "#1B5E20" },
   insightsList: { gap: 12 },
   insightItem: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   insightDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#FF9800", marginTop: 7 },
   insightText: { flex: 1, fontSize: 14, color: "#4E6E4E", lineHeight: 20 },
 
+  // ── Breakdown list
   listCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "#FFFFFF", borderRadius: 20, padding: 18, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
   },
   listHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
   listDivider: { height: 1, backgroundColor: "#F5F5F5", marginBottom: 4 },
   listRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
-    gap: 12,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#F5F5F5", gap: 12,
   },
   listDayRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
   listDay: { fontSize: 14, fontWeight: "700", color: "#1B5E20" },
@@ -764,6 +773,10 @@ const styles = StyleSheet.create({
   peakBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: "#E8F5E9" },
   peakBadgeText: { fontSize: 9, fontWeight: "700", color: "#2E7D32", letterSpacing: 0.5 },
 
-  footerNote: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#F5F5F5", padding: 14, borderRadius: 12 },
+  // ── Footer
+  footerNote: {
+    flexDirection: "row", alignItems: "flex-start", gap: 10,
+    backgroundColor: "#F5F5F5", padding: 14, borderRadius: 12,
+  },
   footerText: { flex: 1, fontSize: 12, color: "#9E9E9E", lineHeight: 18, fontWeight: "400" },
 });
