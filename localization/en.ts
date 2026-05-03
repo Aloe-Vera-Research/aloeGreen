@@ -941,10 +941,25 @@ const en = {
   chatSomethingWentWrong: "Something went wrong. Please try again.",
   noResponse: "No response",
 
+  chatDiseasePrompt:
+    "Analyze my disease detection history from backend data and explain the recent Aloe vera disease situation, possible risks, and treatment suggestions.",
+
+  chatYieldPrompt:
+    "Analyze my yield forecast history from backend data and explain the current Aloe vera yield performance, risks, and improvement suggestions.",
+
+  chatFertilizerPrompt:
+    "Analyze my fertilizer history from backend data and explain the fertilizer plan, nutrient condition, and recommendations for Aloe vera cultivation.",
+
+  chatPricePrompt:
+    "Analyze my price prediction history from backend data and explain the current market price situation, risks, and farmer decision support.",
+
+  chatLoadingBackendData: "Loading backend data...",
+  chatNoBackendData: "No backend data found for this component.",
 
 
 
-    // ====================
+
+  // ====================
   // Fertilizer Analyzer History Screen
   // ====================
 
@@ -997,7 +1012,7 @@ const en = {
     "Analysis is based on {{soil}} soil and {{stage}} plant stage.",
 
 
-      // ====================
+  // ====================
   // Fertilizer History Screen
   // ====================
 
@@ -1028,7 +1043,7 @@ const en = {
   tryAgain: "Try Again",
 
 
-    // ====================
+  // ====================
   // Disease History Screen
   // ====================
 
