@@ -7,44 +7,75 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLanguage } from "../../context/LanguageContext";
-import {BASE_URL } from "../../config/api";
+import { BASE_URL } from "../../config/api";
 
 const API_BASE_URL = BASE_URL;
 const { width } = Dimensions.get("window");
+
+type YieldBaseInput = {
+  humidity_pct: number;
+  irrigation_mm: number;
+  plant_age_months: number;
+  rainfall_mm: number;
+  soil_moisture_pct: number;
+  soil_organic_matter_pct: number;
+  soil_ph: number;
+  soil_texture_enc: number;
+  temp_day_c: number;
+};
+
+type FarmSetup = {
+  plantCount: number;
+  plantAgeMonths: number;
+};
 
 export default function ScenarioScreen() {
   const { t } = useLanguage();
 
   const requestIdRef = React.useRef(0);
+
   const [plantCount, setPlantCount] = useState<number>(0);
+  const [baseInput, setBaseInput] = useState<YieldBaseInput | null>(null);
+
   const [basePerPlantYield, setBasePerPlantYield] = useState<number>(0);
   const [scenarioYield, setScenarioYield] = useState<number>(0);
   const [yieldChange, setYieldChange] = useState<string>("0.0");
+
+  const [loadingInitial, setLoadingInitial] = useState<boolean>(false);
   const [loadingScenario, setLoadingScenario] = useState<boolean>(false);
 
-  const [irrigation, setIrrigation] = useState(4);
-  const [temperature, setTemperature] = useState(32);
-  const [fertilizer, setFertilizer] = useState(50);
-  const [sunlight, setSunlight] = useState(8);
+  const [irrigation, setIrrigation] = useState<number>(4);
+  const [temperature, setTemperature] = useState<number>(32);
+
+  const [fertilizer, setFertilizer] = useState<number>(50);
+  const [sunlight, setSunlight] = useState<number>(8);
 
   const [yieldAnim] = useState(new Animated.Value(0));
   const [fadeAnim] = useState(new Animated.Value(0));
 
   const perPlantScenarioYield = scenarioYield || basePerPlantYield;
+
   const totalScenarioYieldKg = (
     (perPlantScenarioYield * plantCount) /
     1000
   ).toFixed(2);
+
   const baseYieldKg = ((basePerPlantYield * plantCount) / 1000).toFixed(2);
+
   const isPositiveChange = parseFloat(yieldChange) >= 0;
 
-  const DEFAULT_BASE = {
+  /**
+   * These are only fallback values.
+   * They are used only if AsyncStorage or backend live environment data is missing.
+   */
+  const FALLBACK_BASE: YieldBaseInput = {
     humidity_pct: 70,
     irrigation_mm: 4,
     plant_age_months: 2,
@@ -57,8 +88,7 @@ export default function ScenarioScreen() {
   };
 
   useEffect(() => {
-    loadFarmSetup();
-    fetchBasePrediction();
+    initializeDynamicBase();
 
     Animated.parallel([
       Animated.spring(yieldAnim, {
@@ -75,68 +105,239 @@ export default function ScenarioScreen() {
   }, []);
 
   useEffect(() => {
+    if (!baseInput) return;
+
     const timer = setTimeout(() => {
       fetchScenarioPrediction();
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [irrigation, temperature]);
+  }, [irrigation, temperature, baseInput]);
 
-  const resetScenario = () => {
-    setIrrigation(4);
-    setTemperature(32);
-    setFertilizer(50);
-    setSunlight(8);
-  };
+  const loadFarmSetup = async (): Promise<FarmSetup> => {
+    try {
+      const data = await AsyncStorage.getItem("farmConfig");
 
-  const applyPreset = (preset: string) => {
-    switch (preset) {
-      case "optimal":
-        setIrrigation(6);
-        setTemperature(30);
-        setFertilizer(75);
-        setSunlight(7);
-        break;
-      case "drought":
-        setIrrigation(2);
-        setTemperature(38);
-        setFertilizer(40);
-        setSunlight(10);
-        break;
-      case "rainy":
-        setIrrigation(8);
-        setTemperature(26);
-        setFertilizer(60);
-        setSunlight(5);
-        break;
+      if (!data) {
+        return {
+          plantCount: 0,
+          plantAgeMonths: FALLBACK_BASE.plant_age_months,
+        };
+      }
+
+      const parsed = JSON.parse(data);
+
+      const loadedPlantCount = Number(parsed.plantCount || 0);
+
+      /**
+       * This supports multiple possible names from your farm setup screen.
+       * Use the one that matches your saved AsyncStorage object.
+       */
+      const loadedPlantAge = Number(
+        parsed.plantAgeMonths ||
+          parsed.plantAge ||
+          parsed.ageMonths ||
+          FALLBACK_BASE.plant_age_months
+      );
+
+      setPlantCount(loadedPlantCount);
+
+      return {
+        plantCount: loadedPlantCount,
+        plantAgeMonths: loadedPlantAge,
+      };
+    } catch (error) {
+      console.log("Error loading farm config:", error);
+
+      return {
+        plantCount: 0,
+        plantAgeMonths: FALLBACK_BASE.plant_age_months,
+      };
     }
   };
 
-  const loadFarmSetup = async () => {
+  const fetchLatestEnvironment = async () => {
     try {
-      const data = await AsyncStorage.getItem("farmConfig");
-      if (!data) return;
+      /**
+       * Change this endpoint if your backend route is different.
+       * Example alternatives:
+       * /environment/latest
+       * /api/environment/latest
+       * /iot/latest
+       * /sensor/latest
+       */
+      const response = await fetch(`${API_BASE_URL}/environment/latest`);
 
-      const parsed = JSON.parse(data);
-      setPlantCount(parsed.plantCount || 0);
+      if (!response.ok) {
+        throw new Error(`Environment API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      /**
+       * These mappings support common MongoDB / IoT field names.
+       * Adjust field names if your database uses different names.
+       */
+      return {
+        humidity_pct: Number(
+          data.humidity_pct ??
+            data.humidity ??
+            data.humidityPct ??
+            FALLBACK_BASE.humidity_pct
+        ),
+
+        irrigation_mm: Number(
+          data.irrigation_mm ??
+            data.irrigation ??
+            data.irrigationMm ??
+            FALLBACK_BASE.irrigation_mm
+        ),
+
+        rainfall_mm: Number(
+          data.rainfall_mm ??
+            data.rainfall ??
+            data.rainfallMm ??
+            FALLBACK_BASE.rainfall_mm
+        ),
+
+        soil_moisture_pct: Number(
+          data.soil_moisture_pct ??
+            data.soil_moisture ??
+            data.soilMoisture ??
+            data.moisture ??
+            FALLBACK_BASE.soil_moisture_pct
+        ),
+
+        soil_organic_matter_pct: Number(
+          data.soil_organic_matter_pct ??
+            data.soil_organic_matter ??
+            data.soilOrganicMatter ??
+            FALLBACK_BASE.soil_organic_matter_pct
+        ),
+
+        soil_ph: Number(
+          data.soil_ph ??
+            data.soil_pH ??
+            data.ph ??
+            data.pH ??
+            FALLBACK_BASE.soil_ph
+        ),
+
+        soil_texture_enc: Number(
+          data.soil_texture_enc ??
+            data.soilTextureEnc ??
+            data.soil_texture ??
+            FALLBACK_BASE.soil_texture_enc
+        ),
+
+        temp_day_c: Number(
+          data.temp_day_c ??
+            data.temperature ??
+            data.temp ??
+            data.tempDayC ??
+            FALLBACK_BASE.temp_day_c
+        ),
+      };
     } catch (error) {
-      console.log("Error loading farm config:", error);
+      console.log("Latest environment fetch error:", error);
+
+      return {
+        humidity_pct: FALLBACK_BASE.humidity_pct,
+        irrigation_mm: irrigation,
+        rainfall_mm: FALLBACK_BASE.rainfall_mm,
+        soil_moisture_pct: FALLBACK_BASE.soil_moisture_pct,
+        soil_organic_matter_pct: FALLBACK_BASE.soil_organic_matter_pct,
+        soil_ph: FALLBACK_BASE.soil_ph,
+        soil_texture_enc: FALLBACK_BASE.soil_texture_enc,
+        temp_day_c: temperature,
+      };
+    }
+  };
+
+  const initializeDynamicBase = async () => {
+    try {
+      setLoadingInitial(true);
+
+      const farm = await loadFarmSetup();
+      const environment = await fetchLatestEnvironment();
+
+      const dynamicBase: YieldBaseInput = {
+        humidity_pct: environment.humidity_pct,
+        irrigation_mm: environment.irrigation_mm,
+        plant_age_months: farm.plantAgeMonths,
+        rainfall_mm: environment.rainfall_mm,
+        soil_moisture_pct: environment.soil_moisture_pct,
+        soil_organic_matter_pct: environment.soil_organic_matter_pct,
+        soil_ph: environment.soil_ph,
+        soil_texture_enc: environment.soil_texture_enc,
+        temp_day_c: environment.temp_day_c,
+      };
+
+      setBaseInput(dynamicBase);
+
+      /**
+       * Initialize sliders using live environment data.
+       */
+      setIrrigation(Math.round(dynamicBase.irrigation_mm));
+      setTemperature(Math.round(dynamicBase.temp_day_c));
+
+      await fetchBasePrediction(dynamicBase);
+    } catch (error) {
+      console.log("Dynamic base initialization error:", error);
+    } finally {
+      setLoadingInitial(false);
+    }
+  };
+
+  const fetchBasePrediction = async (base: YieldBaseInput) => {
+    try {
+      const payload = {
+        ...base,
+        timestamp: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/yield/predict`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Base prediction HTTP error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data?.success) {
+        setBasePerPlantYield(Number(data.gel_weight_g ?? 0));
+      }
+    } catch (error) {
+      console.log("Base prediction error:", error);
     }
   };
 
   const fetchScenarioPrediction = async () => {
     try {
+      if (!baseInput) return;
+
       const requestId = ++requestIdRef.current;
       setLoadingScenario(true);
 
       const payload = {
-        base: DEFAULT_BASE,
+        base: baseInput,
         scenarios: [
           {
             name: "Current Scenario",
             changes: {
               irrigation_mm: irrigation,
               temp_day_c: temperature,
+
+              /**
+               * Do not add fertilizer or sunlight here unless your backend model
+               * was trained with those fields.
+               */
             },
           },
         ],
@@ -170,33 +371,61 @@ export default function ScenarioScreen() {
     }
   };
 
-  const fetchBasePrediction = async () => {
-    try {
-      const payload = {
-        ...DEFAULT_BASE,
-        timestamp: new Date().toISOString(),
-      };
-
-      const response = await fetch(`${API_BASE_URL}/yield/predict`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data?.success) {
-        setBasePerPlantYield(Number(data.gel_weight_g ?? 0));
-      }
-    } catch (error) {
-      console.log("Base prediction error:", error);
+  const resetScenario = () => {
+    if (baseInput) {
+      setIrrigation(Math.round(baseInput.irrigation_mm));
+      setTemperature(Math.round(baseInput.temp_day_c));
+    } else {
+      setIrrigation(4);
+      setTemperature(32);
     }
+
+    setFertilizer(50);
+    setSunlight(8);
+  };
+
+  const refreshLiveData = async () => {
+    await initializeDynamicBase();
+  };
+
+  const applyPreset = (preset: string) => {
+    switch (preset) {
+      case "optimal":
+        setIrrigation(6);
+        setTemperature(30);
+        setFertilizer(75);
+        setSunlight(7);
+        break;
+
+      case "drought":
+        setIrrigation(2);
+        setTemperature(38);
+        setFertilizer(40);
+        setSunlight(10);
+        break;
+
+      case "rainy":
+        setIrrigation(8);
+        setTemperature(26);
+        setFertilizer(60);
+        setSunlight(5);
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  const comparisonFillWidth = () => {
+    const base = parseFloat(baseYieldKg);
+    const scenario = parseFloat(totalScenarioYieldKg);
+
+    if (!base || base <= 0) return "50%";
+
+    const percentage = (scenario / base) * 50;
+    const clamped = Math.max(5, Math.min(100, percentage));
+
+    return `${clamped}%`;
   };
 
   return (
@@ -207,23 +436,57 @@ export default function ScenarioScreen() {
     >
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View>
+          <View style={styles.headerTitleWrapper}>
             <Text style={styles.title}>{t("scenarioTesting")}</Text>
             <Text style={styles.subtitle}>
               {t("predictYieldImpactEnvironmentalChanges")}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.resetButton}
-            onPress={resetScenario}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh" size={20} color="#2E7D32" />
-          </TouchableOpacity>
+
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={refreshLiveData}
+              activeOpacity={0.7}
+            >
+              {loadingInitial ? (
+                <ActivityIndicator size="small" color="#2E7D32" />
+              ) : (
+                <Ionicons name="sync" size={20} color="#2E7D32" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={resetScenario}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh" size={20} color="#2E7D32" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.liveDataCard}>
+          <View style={styles.liveDataHeader}>
+            <Ionicons name="radio" size={16} color="#2E7D32" />
+            <Text style={styles.liveDataTitle}>Dynamic Base Data</Text>
+          </View>
+
+          {baseInput ? (
+            <Text style={styles.liveDataText}>
+              Temp: {baseInput.temp_day_c.toFixed(1)}°C | Humidity:{" "}
+              {baseInput.humidity_pct.toFixed(1)}% | Soil Moisture:{" "}
+              {baseInput.soil_moisture_pct.toFixed(1)}% | pH:{" "}
+              {baseInput.soil_ph.toFixed(1)}
+            </Text>
+          ) : (
+            <Text style={styles.liveDataText}>Loading environment data...</Text>
+          )}
         </View>
 
         <View style={styles.presetContainer}>
           <Text style={styles.presetLabel}>{t("quickScenarios")}</Text>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -237,6 +500,7 @@ export default function ScenarioScreen() {
               <Ionicons name="sunny" size={16} color="#2E7D32" />
               <Text style={styles.presetText}>{t("optimalScenario")}</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.presetChip}
               onPress={() => applyPreset("drought")}
@@ -245,6 +509,7 @@ export default function ScenarioScreen() {
               <Ionicons name="flame" size={16} color="#F57C00" />
               <Text style={styles.presetText}>{t("droughtScenario")}</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.presetChip}
               onPress={() => applyPreset("rainy")}
@@ -279,20 +544,28 @@ export default function ScenarioScreen() {
               <View style={styles.resultIconContainer}>
                 <Ionicons name="leaf" size={28} color="#FFFFFF" />
               </View>
+
               <View style={styles.changeIndicator}>
-                <Ionicons
-                  name={isPositiveChange ? "trending-up" : "trending-down"}
-                  size={16}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.changeText}>
-                  {isPositiveChange ? "+" : ""}
-                  {yieldChange}%
-                </Text>
+                {loadingScenario ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={isPositiveChange ? "trending-up" : "trending-down"}
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.changeText}>
+                      {isPositiveChange ? "+" : ""}
+                      {yieldChange}%
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
 
             <Text style={styles.resultLabel}>{t("predictedYieldPerPlant")}</Text>
+
             <View style={styles.resultValueRow}>
               <Text style={styles.resultValue}>
                 {loadingScenario
@@ -304,7 +577,7 @@ export default function ScenarioScreen() {
 
             <View style={styles.comparisonRow}>
               <Text style={styles.comparisonText}>
-                {t("vsBaseline")} {basePerPlantYield}g
+                {t("vsBaseline")} {Number(basePerPlantYield || 0).toFixed(2)}g
               </Text>
             </View>
           </LinearGradient>
@@ -315,9 +588,12 @@ export default function ScenarioScreen() {
             <Ionicons name="analytics-outline" size={20} color="#2E7D32" />
             <Text style={styles.totalLabel}>{t("totalFarmYield")}</Text>
           </View>
+
           <Text style={styles.totalValue}>{totalScenarioYieldKg} kg</Text>
+
           <Text style={styles.totalNote}>
-            {t("basedOnAloePlants")} {plantCount.toLocaleString()} {t("aloePlants")}
+            {t("basedOnAloePlants")} {plantCount.toLocaleString()}{" "}
+            {t("aloePlants")}
           </Text>
 
           <View style={styles.comparisonBar}>
@@ -326,18 +602,13 @@ export default function ScenarioScreen() {
                 style={[
                   styles.comparisonBarFill,
                   {
-                    width: `${
-                      baseYieldKg !== "0.00"
-                        ? (parseFloat(totalScenarioYieldKg) /
-                            parseFloat(baseYieldKg)) *
-                          50
-                        : 50
-                    }%`,
+                    width: comparisonFillWidth(),
                     backgroundColor: isPositiveChange ? "#2E7D32" : "#F57C00",
                   },
                 ]}
               />
             </View>
+
             <Text style={styles.comparisonBarLabel}>
               {t("baseline")}: {baseYieldKg} kg
             </Text>
@@ -356,16 +627,21 @@ export default function ScenarioScreen() {
               >
                 <Ionicons name="water" size={20} color="#1976D2" />
               </View>
+
               <View>
                 <Text style={styles.controlTitle}>{t("irrigation")}</Text>
-                <Text style={styles.controlSubtitle}>{t("dailyWaterAmount")}</Text>
+                <Text style={styles.controlSubtitle}>
+                  {t("dailyWaterAmount")}
+                </Text>
               </View>
             </View>
+
             <View style={styles.controlValueContainer}>
               <Text style={styles.controlValue}>{irrigation}</Text>
               <Text style={styles.controlUnit}>mm</Text>
             </View>
           </View>
+
           <Slider
             minimumValue={0}
             maximumValue={10}
@@ -377,13 +653,15 @@ export default function ScenarioScreen() {
             thumbTintColor="#1976D2"
             style={styles.slider}
           />
+
           <View style={styles.sliderLabels}>
             <Text style={styles.sliderLabel}>0</Text>
             <Text style={styles.sliderLabel}>5</Text>
             <Text style={styles.sliderLabel}>10 mm</Text>
           </View>
+
           <View style={styles.impactBadge}>
-            <Text style={styles.impactText}>{t("uiParameterOnly")}</Text>
+            <Text style={styles.impactText}>Used by prediction model</Text>
           </View>
         </View>
 
@@ -395,16 +673,21 @@ export default function ScenarioScreen() {
               >
                 <Ionicons name="thermometer" size={20} color="#F57C00" />
               </View>
+
               <View>
                 <Text style={styles.controlTitle}>{t("temperature")}</Text>
-                <Text style={styles.controlSubtitle}>{t("averageDailyTemp")}</Text>
+                <Text style={styles.controlSubtitle}>
+                  {t("averageDailyTemp")}
+                </Text>
               </View>
             </View>
+
             <View style={styles.controlValueContainer}>
               <Text style={styles.controlValue}>{temperature}</Text>
               <Text style={styles.controlUnit}>°C</Text>
             </View>
           </View>
+
           <Slider
             minimumValue={20}
             maximumValue={45}
@@ -416,13 +699,15 @@ export default function ScenarioScreen() {
             thumbTintColor="#F57C00"
             style={styles.slider}
           />
+
           <View style={styles.sliderLabels}>
             <Text style={styles.sliderLabel}>20</Text>
             <Text style={styles.sliderLabel}>32</Text>
             <Text style={styles.sliderLabel}>45°C</Text>
           </View>
+
           <View style={styles.impactBadge}>
-            <Text style={styles.impactText}>{t("uiParameterOnly")}</Text>
+            <Text style={styles.impactText}>Used by prediction model</Text>
           </View>
         </View>
       </View>
@@ -432,6 +717,7 @@ export default function ScenarioScreen() {
           <Ionicons name="bulb" size={20} color="#F9A825" />
           <Text style={styles.insightsTitle}>{t("optimizationInsights")}</Text>
         </View>
+
         {isPositiveChange ? (
           <Text style={styles.insightsText}>
             {t("greatCurrentParametersIncreaseYield")}{" "}
@@ -445,7 +731,7 @@ export default function ScenarioScreen() {
           <Text style={styles.insightsText}>
             {t("currentParametersMayDecreaseYield")}{" "}
             <Text style={styles.insightsBold}>
-              {Math.abs(parseFloat(yieldChange))}%
+              {Math.abs(parseFloat(yieldChange || "0"))}%
             </Text>
             .
             {temperature > 35 ? ` ${t("reduceHeatStress")}` : ""}
@@ -458,8 +744,11 @@ export default function ScenarioScreen() {
         <View style={styles.infoIconContainer}>
           <Ionicons name="information-circle" size={20} color="#1976D2" />
         </View>
+
         <Text style={styles.infoText}>
-          {t("scenarioInfoNote")}
+          This scenario uses dynamic farm and environmental data as the baseline.
+          Irrigation and temperature changes are sent to the yield model to
+          calculate the predicted impact.
         </Text>
       </View>
     </ScrollView>
@@ -488,6 +777,14 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 16,
   },
+  headerTitleWrapper: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
@@ -507,6 +804,30 @@ const styles = StyleSheet.create({
     backgroundColor: "#F1F8F4",
     justifyContent: "center",
     alignItems: "center",
+  },
+  liveDataCard: {
+    backgroundColor: "#F1F8F4",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#D8ECDD",
+  },
+  liveDataHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+  liveDataTitle: {
+    fontSize: 13,
+    color: "#2E7D32",
+    fontWeight: "700",
+  },
+  liveDataText: {
+    fontSize: 12,
+    color: "#4E6E50",
+    lineHeight: 18,
   },
   presetContainer: {
     marginTop: 8,
@@ -574,6 +895,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
+    minHeight: 30,
   },
   changeText: {
     fontSize: 14,
@@ -746,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   impactBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F1F8F4",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -754,6 +1076,7 @@ const styles = StyleSheet.create({
   impactText: {
     fontSize: 12,
     fontWeight: "600",
+    color: "#2E7D32",
   },
   insightsCard: {
     marginHorizontal: 20,
