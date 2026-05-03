@@ -31,7 +31,7 @@ const si = {
 
   fertilizerPlanTitle: "පොහොර සැලැස්ම",
   fertilizerPlanSubtitle:
-    "ඔබගේ පස පැතිකඩ සහ වර්ධන අදියර අනුව පුද්ගලීකृत පෝෂක සැලසුම් ලබාගන්න.",
+    "ඔබගේ පස පැතිකඩ සහ වර්ධන අදියර අනුව පුද්ගලීකරණ පෝෂක සැලසුම් ලබාගන්න.",
 
   priceForecastTitle: "මිල පුරෝකථනය",
   priceForecastSubtitle:
@@ -39,7 +39,7 @@ const si = {
 
   mlPowered: "ML බලගන්වයි",
   aiVision: "AI දැක්ම",
-  personalized: "පුද්ගලීකृत",
+  personalized: "පුද්ගලීකරණ",
   marketData: "වෙළඳපොළ දත්ත",
 
   diseaseManagement: "රෝග කළමනාකරණය",
@@ -64,7 +64,7 @@ const si = {
   aboutDiseaseDescription:
     "AI දැක්ම සහ ගොවීන්ගේ ලක්ෂණ වාර්තා මගින් පත්‍ර රෝග හඳුනාගන්න.",
   aboutFertilizerDescription:
-    "වගා වයස, පස පැතිකඩ සහ ঋතු අනුව පුද්ගලීකृत පෝෂක සැලසුම් ලබාදේ.",
+    "වගා වයස, පස පැතිකඩ සහ ঋතු අනුව පුද්ගලීකරණ පෝෂක සැලසුම් ලබාදේ.",
   aboutPriceForecastingTitle: "මිල පුරෝකථනය",
   aboutPriceDescription:
     "ප්‍රාදේශීය සහ ඉතිහාස දත්ත භාවිතයෙන් කෝමාරිකා පත්‍ර වෙළඳපොළ මිල පුරෝකථනය කරන්න.",

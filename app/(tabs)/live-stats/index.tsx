@@ -27,6 +27,7 @@ type Stat = {
   accent: string;
   iconBg: string;
   sublabel: string;
+  progress: number;
 };
 
 type SensorPayload = {
@@ -46,6 +47,11 @@ type SensorPayload = {
   modbus_ok?: boolean;
   wifi_rssi?: number;
   uptime_ms?: number;
+};
+
+type HeroBadge = {
+  label: string;
+  ok: boolean;
 };
 
 const HIVEMQ_HOST = "5b19de651ec740d7a8b737f7c9bbf428.s1.eu.hivemq.cloud";
@@ -69,6 +75,10 @@ function getTrend(
 function formatValue(value?: number, decimals = 1) {
   if (value == null || Number.isNaN(value)) return "--";
   return value.toFixed(decimals);
+}
+
+function clamp(value: number, min = 0, max = 1) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function StatCard({ stat }: { stat: Stat }) {
@@ -128,7 +138,10 @@ function StatCard({ stat }: { stat: Stat }) {
         <View
           style={[
             styles.cardBarFill,
-            { backgroundColor: stat.accent, width: "55%" },
+            {
+              backgroundColor: stat.accent,
+              width: `${clamp(stat.progress) * 100}%`,
+            },
           ]}
         />
       </View>
@@ -143,7 +156,7 @@ export default function LiveStats() {
   const [prevSensorData, setPrevSensorData] = useState<SensorPayload | null>(
     null
   );
-  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [tick, setTick] = useState(0);
 
@@ -172,13 +185,16 @@ export default function LiveStats() {
   useEffect(() => {
     const mqttUrl = `wss://${HIVEMQ_HOST}:${HIVEMQ_PORT}/mqtt`;
 
+    console.log("Connecting MQTT to:", mqttUrl);
+
     const client = mqtt.connect(mqttUrl, {
       username: MQTT_USERNAME,
       password: MQTT_PASSWORD,
-      clientId: `expo_${Math.random().toString(16).slice(2, 10)}`,
+      clientId: `expo_live_${Math.random().toString(16).slice(2, 10)}`,
       clean: true,
       reconnectPeriod: 3000,
       connectTimeout: 30000,
+      keepalive: 60,
     });
 
     clientRef.current = client;
@@ -198,6 +214,12 @@ export default function LiveStats() {
 
     client.on("reconnect", () => {
       console.log("Reconnecting to HiveMQ...");
+      setIsConnected(false);
+    });
+
+    client.on("offline", () => {
+      console.log("MQTT offline");
+      setIsConnected(false);
     });
 
     client.on("error", (err) => {
@@ -212,8 +234,11 @@ export default function LiveStats() {
 
     client.on("message", (_topic, message) => {
       try {
-        const parsed: SensorPayload = JSON.parse(message.toString());
-        console.log("MQTT payload:", parsed);
+        const raw = message.toString();
+        console.log("MQTT raw payload:", raw);
+
+        const parsed: SensorPayload = JSON.parse(raw);
+        console.log("MQTT parsed payload:", parsed);
 
         Animated.sequence([
           Animated.timing(fadeAnim, {
@@ -234,17 +259,25 @@ export default function LiveStats() {
         });
 
         setLastUpdate(new Date());
-        setTick((t) => t + 1);
+        setTick((currentTick) => currentTick + 1);
       } catch (e) {
         console.log("Invalid MQTT payload:", e);
       }
     });
 
     return () => {
-      client.end(true);
+      try {
+        client.removeAllListeners();
+        client.end(true);
+      } catch (error) {
+        console.log("MQTT cleanup error:", error);
+      }
+
       clientRef.current = null;
     };
   }, [fadeAnim]);
+
+  const hasLiveData = sensorData !== null;
 
   const soilMoisturePercent =
     sensorData?.soil_moisture_raw != null
@@ -265,32 +298,51 @@ export default function LiveStats() {
         )
       : undefined;
 
+  const dhtOk =
+    sensorData?.dht_ok ??
+    (sensorData?.temperature_c != null && sensorData?.humidity_pct != null);
+
+  const modbusOk =
+    sensorData?.modbus_ok ??
+    (sensorData?.soil_ph != null ||
+      sensorData?.soil_ec != null ||
+      sensorData?.nitrogen != null ||
+      sensorData?.phosphorus != null ||
+      sensorData?.potassium != null);
+
+  const soilOk = sensorData?.soil_moisture_raw != null;
+
   const stats: Stat[] = useMemo(() => {
     const tempTrend = getTrend(
       sensorData?.temperature_c,
       prevSensorData?.temperature_c,
       0.1
     );
+
     const humTrend = getTrend(
       sensorData?.humidity_pct,
       prevSensorData?.humidity_pct,
       0.1
     );
+
     const soilTrend = getTrend(
       soilMoisturePercent,
       prevSoilMoisturePercent,
       0.1
     );
+
     const rainTrend = getTrend(
       sensorData?.rainfall_mm,
       prevSensorData?.rainfall_mm,
       0.05
     );
+
     const luxTrend = getTrend(
       sensorData?.light_lux,
       prevSensorData?.light_lux,
       1
     );
+
     const nTrend = getTrend(
       sensorData?.nitrogen,
       prevSensorData?.nitrogen,
@@ -300,25 +352,33 @@ export default function LiveStats() {
     return [
       {
         label: t("temperature"),
-        value: formatValue(sensorData?.temperature_c, 1),
+        value: dhtOk ? formatValue(sensorData?.temperature_c, 1) : "--",
         unit: "°C",
         iconName: "thermometer",
         iconLib: "mci",
         trend: tempTrend,
         accent: "#E53935",
         iconBg: "#FFEBEE",
-        sublabel: t("ambientAir"),
+        sublabel: dhtOk ? t("ambientAir") : t("sensorUnavailable"),
+        progress:
+          dhtOk && sensorData?.temperature_c != null
+            ? clamp(sensorData.temperature_c / 45)
+            : 0,
       },
       {
         label: t("humidity"),
-        value: formatValue(sensorData?.humidity_pct, 1),
+        value: dhtOk ? formatValue(sensorData?.humidity_pct, 1) : "--",
         unit: "%",
         iconName: "water-percent",
         iconLib: "mci",
         trend: humTrend,
         accent: "#0288D1",
         iconBg: "#E1F5FE",
-        sublabel: t("relativeHumidity"),
+        sublabel: dhtOk ? t("relativeHumidity") : t("sensorUnavailable"),
+        progress:
+          dhtOk && sensorData?.humidity_pct != null
+            ? clamp(sensorData.humidity_pct / 100)
+            : 0,
       },
       {
         label: t("soilMoisture"),
@@ -329,7 +389,9 @@ export default function LiveStats() {
         trend: soilTrend,
         accent: "#2E7D32",
         iconBg: "#E8F5E9",
-        sublabel: t("groundLevel"),
+        sublabel: soilOk ? t("groundLevel") : t("sensorUnavailable"),
+        progress:
+          soilMoisturePercent != null ? clamp(soilMoisturePercent / 100) : 0,
       },
       {
         label: t("light"),
@@ -340,7 +402,14 @@ export default function LiveStats() {
         trend: luxTrend,
         accent: "#F9A825",
         iconBg: "#FFF8E1",
-        sublabel: t("illumination"),
+        sublabel:
+          sensorData?.light_lux != null
+            ? t("illumination")
+            : t("sensorUnavailable"),
+        progress:
+          sensorData?.light_lux != null
+            ? clamp(sensorData.light_lux / 10000)
+            : 0,
       },
       {
         label: t("rainfall"),
@@ -351,22 +420,32 @@ export default function LiveStats() {
         trend: rainTrend,
         accent: "#1565C0",
         iconBg: "#E3F2FD",
-        sublabel: t("accumulated"),
+        sublabel:
+          sensorData?.rainfall_mm != null
+            ? t("accumulated")
+            : t("sensorUnavailable"),
+        progress:
+          sensorData?.rainfall_mm != null
+            ? clamp(sensorData.rainfall_mm / 10)
+            : 0,
       },
       {
         label: t("nitrogen"),
-        value: sensorData?.modbus_ok
-          ? formatValue(sensorData?.nitrogen, 0)
-          : "--",
+        value:
+          modbusOk && sensorData?.nitrogen != null
+            ? formatValue(sensorData.nitrogen, 0)
+            : "--",
         unit: "",
         iconName: "flask-outline",
         iconLib: "ion",
         trend: nTrend,
         accent: "#6A1B9A",
         iconBg: "#F3E5F5",
-        sublabel: sensorData?.modbus_ok
-          ? t("rs485SoilSensor")
-          : t("sensorUnavailable"),
+        sublabel: modbusOk ? t("rs485SoilSensor") : t("sensorUnavailable"),
+        progress:
+          modbusOk && sensorData?.nitrogen != null
+            ? clamp(sensorData.nitrogen / 100)
+            : 0,
       },
     ];
   }, [
@@ -374,6 +453,9 @@ export default function LiveStats() {
     prevSensorData,
     soilMoisturePercent,
     prevSoilMoisturePercent,
+    dhtOk,
+    soilOk,
+    modbusOk,
     t,
   ]);
 
@@ -381,6 +463,7 @@ export default function LiveStats() {
 
   useEffect(() => {
     setProgress(0);
+
     const step = 50;
     const total = 5000;
     let elapsed = 0;
@@ -388,27 +471,55 @@ export default function LiveStats() {
     const timer = setInterval(() => {
       elapsed += step;
       setProgress(Math.min(elapsed / total, 1));
-      if (elapsed >= total) clearInterval(timer);
+
+      if (elapsed >= total) {
+        clearInterval(timer);
+      }
     }, step);
 
     return () => clearInterval(timer);
   }, [tick]);
 
   const summaryItems = [
-    { icon: "leaf-outline", label: t("sixSensors"), sub: t("active") },
+    {
+      icon: "leaf-outline",
+      label: t("sixSensors"),
+      sub: hasLiveData ? t("active") : t("waiting"),
+    },
     {
       icon: "wifi-outline",
       label: isConnected ? t("connectedShort") : t("offline"),
       sub: t("network"),
     },
-    { icon: "reload-outline", label: t("mqttLive"), sub: "HiveMQ" },
+    {
+      icon: "reload-outline",
+      label: t("mqttLive"),
+      sub: "HiveMQ",
+    },
   ];
 
-  const heroBadges = [
-    sensorData?.dht_ok ? t("dhtOk") : t("dhtMissing"),
-    sensorData?.modbus_ok ? t("npkOk") : t("npkMissing"),
-    sensorData?.soil_moisture_raw != null ? t("soilOk") : t("soilMissing"),
+  const heroBadges: HeroBadge[] = [
+    {
+      label: dhtOk ? t("dhtOk") : t("dhtMissing"),
+      ok: !!dhtOk,
+    },
+    {
+      label: modbusOk ? t("npkOk") : t("npkMissing"),
+      ok: !!modbusOk,
+    },
+    {
+      label: soilOk ? t("soilOk") : t("soilMissing"),
+      ok: !!soilOk,
+    },
   ];
+
+  const lastUpdateText = lastUpdate
+    ? lastUpdate.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "--:--:--";
 
   return (
     <LinearGradient
@@ -455,22 +566,32 @@ export default function LiveStats() {
                   { backgroundColor: isConnected ? "#4CAF50" : "#E53935" },
                 ]}
               />
-              <Text style={styles.statusText}>
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: isConnected ? "#2E7D32" : "#E53935" },
+                ]}
+              >
                 {isConnected ? t("liveMonitoring") : t("disconnected")}
               </Text>
             </View>
 
             <View style={styles.statusRight}>
               <Ionicons name="time-outline" size={12} color="#4E6E4E" />
-              <Text style={styles.statusTime}>
-                {lastUpdate.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </Text>
+              <Text style={styles.statusTime}>{lastUpdateText}</Text>
             </View>
           </View>
+
+          {!hasLiveData && (
+            <View style={styles.waitingBanner}>
+              <Ionicons name="hourglass-outline" size={16} color="#F57C00" />
+              <Text style={styles.waitingText}>
+                {isConnected
+                  ? t("waitingForFirstMqttMessage")
+                  : t("brokerConnectionIs") + " " + t("notActive")}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.summaryRow}>
             {summaryItems.map((item, i) => (
@@ -497,7 +618,9 @@ export default function LiveStats() {
                 { width: `${progress * 100}%` as any },
               ]}
             />
-            <Text style={styles.refreshText}>{t("live")}</Text>
+            <Text style={styles.refreshText}>
+              {hasLiveData ? t("live") : t("waiting")}
+            </Text>
           </View>
         </Animated.View>
 
@@ -525,10 +648,17 @@ export default function LiveStats() {
                     color="#FFFFFF"
                   />
                 </View>
+
                 <Text style={styles.heroLabel}>{t("farmConditions")}</Text>
+
                 <Text style={styles.heroValue}>
-                  {isConnected ? t("live") : t("waiting")}
+                  {hasLiveData
+                    ? isConnected
+                      ? t("live")
+                      : t("offline")
+                    : t("waiting")}
                 </Text>
+
                 <Text style={styles.heroSub}>
                   {sensorData
                     ? `${t("device")}: ${sensorData.device_id ?? "device01"}`
@@ -538,13 +668,23 @@ export default function LiveStats() {
 
               <View style={styles.heroRight}>
                 {heroBadges.map((badge, i) => (
-                  <View key={i} style={styles.heroBadge}>
+                  <View
+                    key={i}
+                    style={[
+                      styles.heroBadge,
+                      {
+                        backgroundColor: badge.ok
+                          ? "rgba(255,255,255,0.12)"
+                          : "rgba(255,0,0,0.16)",
+                      },
+                    ]}
+                  >
                     <Ionicons
-                      name="checkmark-circle"
+                      name={badge.ok ? "checkmark-circle" : "close-circle"}
                       size={13}
-                      color="#A5D6A7"
+                      color={badge.ok ? "#A5D6A7" : "#FFCDD2"}
                     />
-                    <Text style={styles.heroBadgeText}>{badge}</Text>
+                    <Text style={styles.heroBadgeText}>{badge.label}</Text>
                   </View>
                 ))}
               </View>
@@ -565,19 +705,24 @@ const CARD_W = (width - 18 * 2 - 12) / 2;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
   scrollContent: {
     paddingTop: Platform.OS === "ios" ? 64 : 50,
     paddingHorizontal: 18,
     paddingBottom: 48,
   },
 
-  header: { marginBottom: 24 },
+  header: {
+    marginBottom: 24,
+  },
+
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
     marginBottom: 16,
   },
+
   headerIconWrap: {
     width: 56,
     height: 56,
@@ -591,13 +736,18 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  headerTextWrap: { flex: 1 },
+
+  headerTextWrap: {
+    flex: 1,
+  },
+
   title: {
     fontSize: 26,
     fontWeight: "800",
     color: "#1B5E20",
     letterSpacing: -0.5,
   },
+
   subtitle: {
     fontSize: 13,
     color: "#4E6E4E",
@@ -613,23 +763,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
-    marginBottom: 14,
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 6,
     elevation: 2,
   },
-  statusLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+
+  statusLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#4CAF50",
   },
-  statusText: { fontSize: 13, fontWeight: "700", color: "#2E7D32" },
-  statusRight: { flexDirection: "row", alignItems: "center", gap: 5 },
-  statusTime: { fontSize: 12, color: "#4E6E4E", fontWeight: "600" },
+
+  statusText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  statusRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  statusTime: {
+    fontSize: 12,
+    color: "#4E6E4E",
+    fontWeight: "600",
+  },
+
+  waitingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFF8E1",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: "#F57C00",
+  },
+
+  waitingText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#795548",
+    fontWeight: "600",
+  },
 
   summaryRow: {
     flexDirection: "row",
@@ -642,12 +831,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+
   summaryItem: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
+
   summaryIconWrap: {
     width: 32,
     height: 32,
@@ -656,8 +847,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  summaryValue: { fontSize: 12, fontWeight: "700", color: "#1B5E20" },
-  summarySub: { fontSize: 10, color: "#9E9E9E", fontWeight: "500" },
+
+  summaryValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1B5E20",
+  },
+
+  summarySub: {
+    fontSize: 10,
+    color: "#9E9E9E",
+    fontWeight: "500",
+  },
 
   sectionRow: {
     flexDirection: "row",
@@ -665,6 +866,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
   },
+
   sectionLabel: {
     fontSize: 11,
     fontWeight: "700",
@@ -672,7 +874,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: "uppercase",
   },
-  sectionLine: { flex: 1, height: 1, backgroundColor: "#E0E0E0" },
+
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E0E0E0",
+  },
+
   refreshPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -689,6 +897,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
   },
+
   refreshBar: {
     position: "absolute",
     left: 0,
@@ -697,6 +906,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5E9",
     borderRadius: 100,
   },
+
   refreshText: {
     fontSize: 10,
     fontWeight: "700",
@@ -724,6 +934,7 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: "hidden",
   },
+
   cardTopLine: {
     position: "absolute",
     top: 0,
@@ -731,6 +942,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 3,
   },
+
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -738,6 +950,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 6,
   },
+
   cardIconWrap: {
     width: 40,
     height: 40,
@@ -745,6 +958,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   trendBadge: {
     width: 28,
     height: 28,
@@ -752,41 +966,48 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   cardLabel: {
     fontSize: 13,
     fontWeight: "700",
     color: "#1B5E20",
     marginBottom: 2,
   },
+
   cardSublabel: {
     fontSize: 10,
     color: "#9E9E9E",
     fontWeight: "500",
     marginBottom: 10,
   },
+
   valueRow: {
     flexDirection: "row",
     alignItems: "baseline",
     gap: 3,
     marginBottom: 12,
   },
+
   cardValue: {
     fontSize: 30,
     fontWeight: "800",
     letterSpacing: -1,
   },
+
   cardUnit: {
     fontSize: 13,
     fontWeight: "600",
     color: "#9E9E9E",
     marginBottom: 2,
   },
+
   cardBarBg: {
     height: 4,
     backgroundColor: "#F5F5F5",
     borderRadius: 2,
     overflow: "hidden",
   },
+
   cardBarFill: {
     height: "100%",
     borderRadius: 2,
@@ -804,13 +1025,18 @@ const styles = StyleSheet.create({
     elevation: 8,
     minHeight: 120,
   },
+
   heroInner: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 22,
   },
-  heroLeft: { flex: 1 },
+
+  heroLeft: {
+    flex: 1,
+  },
+
   heroIconWrap: {
     width: 44,
     height: 44,
@@ -820,6 +1046,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
+
   heroLabel: {
     fontSize: 12,
     color: "rgba(255,255,255,0.7)",
@@ -827,6 +1054,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 4,
   },
+
   heroValue: {
     fontSize: 28,
     fontWeight: "800",
@@ -834,21 +1062,27 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 4,
   },
+
   heroSub: {
     fontSize: 12,
     color: "rgba(255,255,255,0.65)",
     fontWeight: "400",
   },
-  heroRight: { gap: 8, alignItems: "flex-end" },
+
+  heroRight: {
+    gap: 8,
+    alignItems: "flex-end",
+  },
+
   heroBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(255,255,255,0.12)",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
   },
+
   heroBadgeText: {
     fontSize: 11,
     color: "#FFFFFF",
@@ -861,5 +1095,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  footerText: { fontSize: 12, color: "#BDBDBD", fontWeight: "500" },
+
+  footerText: {
+    fontSize: 12,
+    color: "#BDBDBD",
+    fontWeight: "500",
+  },
 });
