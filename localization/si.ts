@@ -1060,6 +1060,11 @@ const si = {
   severityMedium: "මධ්‍යම",
   severityHigh: "ඉහළ",
   severityCritical: "අතිශය අවදානම්",
+
+  chartTotal: "මුළු එකතුව",
+  chartThisWeek: "මෙම සතිය",
+  chartHealthy: "සෞඛ්‍ය සම්පන්න",
+  chartDiseased: "රෝග සහිත",
 };
 
 export default si;
