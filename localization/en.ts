@@ -919,6 +919,17 @@ const en = {
   marketPriceImpact: "Market Price Impact",
   currentData: "Current Data",
   recommendedActions: "Recommended Actions",
+  webMarketPrice:"Web Market Price",
+  farmGatePrice:"Farm Gate Price",
+  priceDifference:"Price Difference",
+  riskLevelLow: "Low",
+  riskLevelMedium: "Medium",
+  riskLevelHigh: "High",
+  riskLevelCritical: "Critical",
+  riskExplanationLow: "Current conditions pose minimal risk to your farm.",
+  riskExplanationMedium: "Monitor conditions closely and be prepared to act.",
+  riskExplanationHigh: "Take proactive measures to mitigate potential impacts.",
+  riskExplanationCritical: "Immediate action required to protect your farm.",
 
   // ====================
   // Chatbot Screen
@@ -1072,6 +1083,7 @@ const en = {
   chartThisWeek: "This week",
   chartHealthy: "Healthy",
   chartDiseased: "Diseased",
+  
 };
 
 export default en;

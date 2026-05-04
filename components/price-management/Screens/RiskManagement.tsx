@@ -37,6 +37,8 @@ type RiskData = {
     description: string;
     yield_impact: string;
     price_impact: string;
+    percentage?: number;
+    precentage?: number;
     recommendations: string[];
   };
 };
@@ -126,6 +128,7 @@ export default function RiskManagement() {
   const risk = riskData.risk;
   const latest = riskData.latest;
   const RiskIcon = IconMap[risk.icon] || AlertCircle;
+  const riskPercentage = risk.percentage ?? risk.precentage;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
@@ -201,6 +204,7 @@ export default function RiskManagement() {
                 }}
               >
                 {risk.level}
+                {riskPercentage !== undefined ? ` (${riskPercentage}%)` : ""}
               </Text>
             </View>
           </View>
